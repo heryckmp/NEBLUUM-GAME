@@ -63,6 +63,7 @@ class Enemy {
     int stateTimer;
     boolean facingRight = false;
     int contactDmg = 1;
+    int points = 50;
     int animTimer = 0;
     boolean onGround = false;
     boolean active = false;
@@ -144,7 +145,7 @@ class Enemy {
 
     void updateChaser(Room room, Player player) {
         float dx = player.x - x;
-        float speed = 2.5;
+        float speed = 2.5f;
         if (dx > 0) { facingRight = true; vx = (float) speed; }
         else { facingRight = false; vx = (float) -speed; }
 
@@ -273,7 +274,7 @@ class Enemy {
             int pulse = (int) (Math.sin(animTimer * 0.15) * 3);
             g2.fillRect(px - pulse, py, (int) w + pulse * 2, (int) h);
             g2.setColor(new Color(255, 100, 34, 40));
-            g2.fillOval(px - 4 - pulse, py - 4, (int) w + 8 + pulse * 2, h + 8);
+            g2.fillOval(px - 4 - pulse, py - 4, (int) w + 8 + pulse * 2, (int) h + 8);
             g2.setColor(Color.WHITE);
             g2.fillRect(px + 8, py + 6, 4, 4);
             g2.fillRect(px + 14, py + 6, 4, 4);

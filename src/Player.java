@@ -1,8 +1,10 @@
 import java.awt.*;
-import java.util.*;
+import java.util.Random;
+import java.util.List;
 
 public class Player {
-    float x, y, w, h;
+    float x, y;
+    int w, h;
     float vx, vy;
     int hp = 12, maxHp = 12;
     int shield = 0;
@@ -16,7 +18,6 @@ public class Player {
     boolean onGround = false;
     boolean facingRight = true;
 
-    // Combat
     int attackCooldown = 0;
     int attackDuration = 0;
     boolean attacking = false;
@@ -25,20 +26,16 @@ public class Player {
     int attackKnockbackX = 6;
     int attackKnockbackY = -4;
 
-    // Dash
     int dashCooldown = 0;
     boolean isDashing = false;
     int dashDuration = 0;
     float dashVx, dashVy;
 
-    // Invincibility
     int invincible = 0;
 
-    // Inventory
     int coins = 0, bombs = 3, healthPotions = 2;
     int maxCoins = 999;
 
-    // Input (set by Game)
     boolean inputLeft, inputRight, inputJump, inputDown, inputAttack, inputDash, inputUse, inputDrop;
 
     private boolean jumpReleased = true;
@@ -64,25 +61,22 @@ public class Player {
         if (isDashing) {
             dashDuration--;
             if (dashDuration <= 0) isDashing = false;
-            map.spawnParticles(x + w/2, y + h/2, new Color(0, 200, 255, 80), 3, random());
+            map.spawnParticles(x + w/2, y + h/2, new Color(0, 200, 255, 80), 3, new Random());
             x += dashVx;
             y += dashVy;
             invincible = Math.max(invincible, 1);
             return;
         }
 
-        // Physics
-        vy += 0.42; // gravity
+        vy += 0.42;
         if (vy > 12) vy = 12;
 
-        // Move horizontal
         vx = 0;
         if (inputLeft) vx = (float)-speed;
         if (inputRight) vx = (float)speed;
 
         applyMovement(map);
 
-        // Jump
         if (inputJump && jumpReleased && jumpsUsed < maxJumps) {
             vy = (float)jumpForce;
             jumpsUsed++;
@@ -91,15 +85,11 @@ public class Player {
         }
         if (!inputJump) jumpReleased = true;
 
-        // Drop through platform
-        boolean dropping = false;
         if (inputDown && onGround) {
             vy = 3;
             onGround = false;
-            dropping = true;
         }
 
-        // Attack
         if (attackCooldown > 0) attackCooldown--;
         if (inputAttack && attackCooldown <= 0 && !attacking) {
             startAttack();
@@ -110,37 +100,27 @@ public class Player {
             if (attackDuration <= 0) attacking = false;
         }
 
-        // Dash
         if (dashCooldown > 0) dashCooldown--;
         if (inputDash && dashCooldown <= 0 && energy >= 25) {
             startDash();
         }
 
-        // Use item
         if (inputUse && healthPotions > 0) {
             if (hp < maxHp) {
                 healthPotions--;
                 heal(4);
-                map.spawnParticles(x + w/2, y + h/2, new Color(0, 255, 150, 180), 12, random());
+                map.spawnParticles(x + w/2, y + h/2, new Color(0, 255, 150, 180), 12, new Random());
             }
         }
 
-        // Drop bomb
         if (inputDrop && bombs > 0) {
             bombs--;
             map.spawnBomb(facingRight ? x + w : x - 20, y + h, facingRight ? 6 : -6);
         }
 
-        // Invincibility
         if (invincible > 0) invincible--;
-
-        // Energy regen
         if (energy < maxEnergy) energy = Math.min(maxEnergy, energy + 1);
-
-        // Fell off
-        if (y > 800) {
-            die();
-        }
+        if (y > 800) die();
     }
 
     private void applyMovement(TileMap map) {
@@ -153,18 +133,18 @@ public class Player {
     }
 
     private void handleTileCollision(TileMap map, boolean isX) {
-        int tx1 = (int)(x / Game.GS);
-        int tx2 = (int)((x + w - 0.01f) / Game.GS);
-        int ty1 = (int)(y / Game.GS);
-        int ty2 = (int)((y + h - 0.01f) / Game.GS);
+        int tx1 = (int)(x / 32);
+        int tx2 = (int)((x + w - 0.01f) / 32);
+        int ty1 = (int)(y / 32);
+        int ty2 = (int)((y + h - 0.01f) / 32);
 
         for (int ty = ty1; ty <= ty2; ty++) {
             for (int tx = tx1; tx <= tx2; tx++) {
                 Tile tile = map.getTile(tx, ty);
                 if (tile != null && tile.isSolid() && !tile.isPlatform()) {
-                    resolveCollision(tx * Game.GS, ty * Game.GS, Game.GS, Game.GS, isX, false);
+                    resolveCollision(tx * 32, ty * 32, 32, 32, isX, false);
                 } else if (tile != null && tile.isPlatform() && vy >= 0) {
-                    resolveCollision(tx * Game.GS, ty * Game.GS, Game.GS, Game.GS, isX, true);
+                    resolveCollision(tx * 32, ty * 32, 32, 32, isX, true);
                 }
             }
         }
@@ -180,8 +160,7 @@ public class Player {
         float minOverY = Math.min(overlapT, overlapB);
 
         if (isPlatform) {
-            // Only collide from top for platforms
-            if (vy >= 0 && minOverY < minOverX && minOverY < Game.GS/3 && minOverY > 0 && y + h - vy <= tileY + 3) {
+            if (vy >= 0 && minOverY < minOverX && minOverY < 32/3 && minOverY > 0 && y + h - vy <= tileY + 3) {
                 y = tileY - h;
                 vy = 0;
                 onGround = true;
@@ -230,10 +209,7 @@ public class Player {
         invincible = 10;
     }
 
-    void heal(int amount) {
-        hp = Math.min(maxHp, hp + amount);
-    }
-
+    void heal(int amount) { hp = Math.min(maxHp, hp + amount); }
     void takeDamage(int dmg) {
         if (invincible > 0 || isDashing) return;
         if (shield > 0) { shield = Math.max(0, shield - dmg); invincible = 30; return; }
@@ -242,15 +218,10 @@ public class Player {
         if (hp <= 0) die();
     }
 
-    void die() {
-        hp = 0;
-    }
-
-    Random rnd = new Random();
-    Random random() { return rnd; }
+    void die() { hp = 0; }
 
     public Rectangle getBounds() {
-        return new Rectangle((int)x, (int)y, (int)w, (int)h);
+        return new Rectangle((int)x, (int)y, w, h);
     }
 
     public Rectangle getAttackBox() {
@@ -261,40 +232,32 @@ public class Player {
     public void draw(Graphics2D g2) {
         int px = (int)x, py = (int)y;
 
-        // Flicker when invincible
         if (invincible > 0 && (invincible / 3) % 2 == 0) return;
 
-        // Shadow
         g2.setColor(new Color(0, 0, 0, 40));
         g2.fillRect(px + 3, py + h, w, 4);
 
-        // Dash effect
         if (isDashing) {
             g2.setColor(new Color(0, 150, 255, 60));
             g2.fillOval(px - 10, py + h - 5, w + 20, 8);
         }
 
-        // Body
         g2.setColor(new Color(0, 180, 220));
         g2.fillRect(px + 2, py + 8, w - 4, h - 12);
 
-        // Core glow
         int gc = 60 + (int)(Math.sin(System.currentTimeMillis() * 0.005) * 20);
         g2.setColor(new Color(0, 220, 255, gc));
         g2.fillOval(px + 1, py + 12, w - 2, 12);
 
-        // Head
         g2.setColor(new Color(0, 160, 200));
         g2.fillRect(px + 1, py + 2, w - 2, 10);
 
-        // Visor
         g2.setColor(new Color(255, 255, 255));
         int visorX = facingRight ? px + 13 : px + 3;
         g2.fillRect(visorX, py + 4, 5, 5);
         g2.setColor(new Color(150, 255, 255, 180));
         g2.fillRect(visorX + 1, py + 5, 3, 3);
 
-        // Legs
         g2.setColor(new Color(0, 120, 160));
         if (onGround && Math.abs(vx) > 0.1) {
             int legA = (int)(Math.sin(System.currentTimeMillis() * 0.012) * 4);
@@ -308,13 +271,11 @@ public class Player {
             g2.fillRect(px + w - 9, py + h - 6, 6, 6);
         }
 
-        // Shield visual
         if (shield > 0) {
             g2.setColor(new Color(100, 150, 255, 30));
             g2.drawOval(px - 6, py - 6, w + 12, h + 12);
         }
 
-        // Attack visual
         if (attacking) {
             int atx = facingRight ? px + w + 4 : px - 24;
             g2.setColor(new Color(0, 255, 200, 180));

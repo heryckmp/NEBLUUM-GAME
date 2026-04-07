@@ -11,15 +11,9 @@ class Room extends TileMap {
         super(cols, rows);
     }
 
-    void addEnemy(Enemy e) {
-        enemies.add(e);
-    }
+    void addEnemy(Enemy e) { enemies.add(e); }
+    void addCollectible(float x, float y, int type) { collectibles.add(new Collectible(x, y, type)); }
 
-    void addCollectible(float x, float y, int type) {
-        collectibles.add(new Collectible(x, y, type));
-    }
-
-    @Override
     void update(Player player, SoundPlayer sound, Random rand) {
         super.update(player);
 
@@ -46,7 +40,6 @@ class Room extends TileMap {
             }
         }
 
-        // Remove dead enemies and drop coins
         for (int i = enemies.size() - 1; i >= 0; i--) {
             Enemy e = enemies.get(i);
             if (e.dead()) {
@@ -59,7 +52,6 @@ class Room extends TileMap {
             }
         }
 
-        // Collectibles
         for (int i = collectibles.size() - 1; i >= 0; i--) {
             Collectible c = collectibles.get(i);
             c.update();
@@ -77,7 +69,6 @@ class Room extends TileMap {
             }
         }
 
-        // Projectiles
         for (int i = projectiles.size() - 1; i >= 0; i--) {
             EnemyProjectile p = projectiles.get(i);
             p.update(this);
@@ -123,9 +114,8 @@ class Room extends TileMap {
 
         g2.setColor(new Color(0, 150, 200, 15));
         for (int i = 0; i < 30; i++) {
-            long seed = (long) (i * 7 + cam.x * 0.05) % H;
             int lx = (int) ((i * 137 + cam.x * 0.08) % W);
-            int ly = (int) (Math.abs(seed) % (H - 100));
+            int ly = (int) ((Math.abs((i * 7L + (long)(cam.x * 0.05)) % H)) % (H - 100));
             g2.fillOval(lx, ly, 2, 2);
         }
     }
