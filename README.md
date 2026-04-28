@@ -1,39 +1,38 @@
-# NEBLUUM - Cyber Platformer
+# NEBLUUM - Stellar Evolution Platformer
 
-Um jogo de plataforma 2D estilo cyberpunk feito em Java puro com Swing.
+Um jogo de plataforma 2D com temática espacial e evolução estelar, feito em Java puro com Swing.
 
 ## Controles
 
-| Tecla | Acao |
+| Tecla | Ação |
 |-------|------|
 | WASD / Setas | Mover |
-| W / Space / Up | Pular (duplo pulo) |
-| S / Down | Drop-through (atravessar plataforma) |
-| Z / J | Atacar com espada |
-| X / K | Dash (esquiva rapida, consome energia) |
-| C / L | Usar pocao de vida |
-| Q | Dropar bomba |
+| W / Espaço / Cima | Pular (duplo pulo) |
+| J / Z | Atacar com espada |
+| L / C | Disparar Raios (consome munição) |
+| K / X | Dash (esquiva rápida, consome energia) |
 | P / Esc | Pausar |
 
-## Build e Execucao
+## Evolução Estelar
+
+- **Fragmentos de Estrela**: Colete um em cada fase para transformar gradualmente o personagem.
+- **Forma de Estrela**: Ao coletar os 7 fragmentos, você assume a forma estelar radiante.
+- **Poder do Raio**: Itens de raio aumentam o dano em 5% e adicionam raios visuais à sua aura.
+
+## Build e Execução
 
 Requer **JDK 8+**:
 
 ```bash
-cd src
-javac *.java
-java Main
+javac src/*.java
+java -cp src Main
 ```
 
 ## Features
 
-- **5 niveis** com dificuldade progressiva
-- **5 tipos de inimigos**: Walker, Jumper, Shooter, Chaser e BOSS
-- **Sistema de combate**: espada com damage e knockback
-- **Dash** com frames de invencibilidade
-- **Drops**: life, coin, shield, potion, bomb, sword upgrade, spike
-- **Inventario**: coins, bombs, health potions
-- **Particulas** e efeitos visuais
-- **Parallax backgrounds** com cenario cyberpunk
-- **Sintese de som** basico para efeitos
-- **Fisica completa**: gravidade, colisao por tile, plataformas
+- **7 níveis** com dificuldade progressiva e biomas diferenciados.
+- **Obstáculos Dinâmicos**: Fossos de Lava, Ácido e cristais de espinho.
+- **IA de Inimigos**: Walker, Shooter, Ghost, Chaser e o Black Hole BOSS.
+- **Sistema de Combate**: Espada e Raios com prioridade de hit corrigida.
+- **Efeitos Visuais**: Partículas, Aura pulsante, Heal Star Burst e Emerald Burst.
+- **Física**: Gravidade, colisão precisa por tile e plataformas móveis.

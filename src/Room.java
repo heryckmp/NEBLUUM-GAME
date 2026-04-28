@@ -20,12 +20,26 @@ class Room extends TileMap {
 
     void update(Player player, SoundPlayer sound, Random rand) {
         super.update(player);
-        double dt = 1.0; // Valor padrão para o update interno do Room
+        double dt = 1.0; 
 
+        // Colisão com inimigos e ataques
         for (int i = 0; i < enemies.size(); i++) {
             Enemy e = enemies.get(i);
             e.update(this, player, dt);
 
+            // 1. Prioridade: Ataque de Espada do Player
+            if (player.attacking && e.state != 2) {
+                Rectangle ab = player.getAttackBox();
+                if (ab.intersects(e.getBounds())) {
+                    e.takeDamage(player.attackDamage, player.attackKnockbackX * (player.facingRight ? 1 : -1), player.attackKnockbackY);
+                    spawnParticles(e.x + e.w / 2, e.y + e.h / 2, new Color(255, 200, 100, 180), 5, rand);
+                    sound.playHit();
+                    player.attackCooldown = 12;
+                    continue; 
+                }
+            }
+
+            // 2. Dano de Contato do Inimigo
             if (e.state != 2 && e.active && e.getBounds().intersects(player.getBounds())) {
                 player.takeDamage(e.contactDmg);
                 if (player.hp > 0) sound.playHurt();
@@ -34,15 +48,26 @@ class Room extends TileMap {
                 player.vy = -4;
             }
 
-            if (player.attacking && e.state != 2) {
-                Rectangle ab = player.getAttackBox();
-                if (ab.intersects(e.getBounds())) {
-                    e.takeDamage(player.attackDamage, player.attackKnockbackX * (player.facingRight ? 1 : -1), player.attackKnockbackY);
-                    spawnParticles(e.x + e.w / 2, e.y + e.h / 2, new Color(255, 200, 100, 180), 5, rand);
-                    sound.playHit();
-                    player.attackCooldown = 12;
+            // Ataque de Raios (Ajustado: Dano imediato e bônus de dano)
+            if (player.firingLightning && e.state != 2) {
+                int lx = (int)(player.facingRight ? player.x + player.w : player.x - 150);
+                Rectangle lightningBox = new Rectangle(lx, (int)player.y, 150, (int)player.h);
+                if (lightningBox.intersects(e.getBounds())) {
+                    // Dano imediato com bônus de 5% por item de raio
+                    int finalDmg = (int)(1 * player.lightningDamageMult);
+                    if (finalDmg < 1) finalDmg = 1;
+                    
+                    e.takeDamage(finalDmg, 0, 0); 
+                    spawnParticles(e.x + e.w/2, e.y + e.h/2, Color.CYAN, 2, rand);
                 }
             }
+        }
+
+        // Morte do Player
+        if (player.hp <= 0) {
+            spawnParticles(player.x + player.w / 2, player.y + player.h / 2, new Color(255, 100, 0), 30, rand);
+            spawnParticles(player.x + player.w / 2, player.y + player.h / 2, Color.YELLOW, 20, rand);
+            sound.playDeath();
         }
 
         for (int i = enemies.size() - 1; i >= 0; i--) {
@@ -66,10 +91,26 @@ class Room extends TileMap {
                 if (c.type == 0) { player.heal(3); spawnParticles(c.x, c.y, Color.GREEN, 8, rand); }
                 else if (c.type == 1) { player.coins++; player.score += 10; }
                 else if (c.type == 2) { player.shield = Math.min(player.shield + 5, 10); }
-                else if (c.type == 3) { player.healthPotions++; }
+                else if (c.type == 3) { 
+                    player.livesCollected++; 
+                    player.heal(0); // Trigger heal burst visual
+                    player.hp = player.maxHp;
+                }
                 else if (c.type == 4) { player.bombs++; }
                 else if (c.type == 5) { player.attackDamage++; }
-                spawnParticles(c.x, c.y, c.type == 0 ? Color.GREEN : Color.YELLOW, 6, rand);
+                else if (c.type == 6) { 
+                    player.lightningAmmo = Math.min(player.maxLightningAmmo, player.lightningAmmo + 50);
+                    player.lightningItems++;
+                    player.lightningDamageMult += 0.05f;
+                    player.emeraldBurstTimer = 60; // Inicia efeito visual esmeralda
+                }
+                else if (c.type == 7) { 
+                    player.starPower++; 
+                    player.heal(0); // Trigger heal burst visual
+                    spawnParticles(c.x, c.y, Color.WHITE, 15, rand);
+                    spawnParticles(c.x, c.y, Color.YELLOW, 20, rand);
+                }
+                spawnParticles(c.x, c.y, (c.type == 6 ? new Color(0, 255, 120) : (c.type == 0 ? Color.GREEN : Color.YELLOW)), 6, rand);
                 collectibles.remove(i);
             }
         }
@@ -87,11 +128,17 @@ class Room extends TileMap {
         }
     }
 
-    boolean isComplete() {
-        for (int y = 0; y < rows; y++) {
-            for (int x = 0; x < cols; x++) {
-                Tile t = tiles[y][x];
-                if (t.isExit()) {
+    boolean checkExit(Player player) {
+        int ts = 32;
+        int tx1 = (int)(player.x / ts);
+        int tx2 = (int)((player.x + player.w) / ts);
+        int ty1 = (int)(player.y / ts);
+        int ty2 = (int)((player.y + player.h) / ts);
+
+        for (int ty = ty1; ty <= ty2; ty++) {
+            for (int tx = tx1; tx <= tx2; tx++) {
+                Tile t = getTile(tx, ty);
+                if (t != null && t.isExit()) {
                     return enemies.isEmpty();
                 }
             }
@@ -99,7 +146,10 @@ class Room extends TileMap {
         return false;
     }
 
-    // Theme colors for this room
+    boolean isComplete() {
+        return false; 
+    }
+
     private Color themeBase = Color.decode("#0a0e1a");
     private Color themePlatform = Color.decode("#0d1830");
     private Color themeAccent = Color.decode("#004488");
@@ -108,15 +158,13 @@ class Room extends TileMap {
         super.drawBackground(g2, cam, W, H);
         long t = System.currentTimeMillis();
 
-        // Gas giant planet (back-right)
+        // Gas giant planet
         int planetOffX = (int)(cam.x * 0.04) % (W + 600);
         int pX = W - 220 - planetOffX % W; int pY = 30; int pR = 115;
         int pCX = pX + pR, pCY = pY + pR;
-        // Planet body
         g2.setPaint(new GradientPaint(pX, pY, new Color(35, 18, 85, 70), pX + pR, pY + pR * 2, new Color(12, 5, 42, 90)));
         g2.fillOval(pX, pY, pR * 2, pR * 2);
         g2.setPaint(null);
-        // Atmospheric bands
         for (int band = 0; band < 6; band++) {
             int by = pY + 22 + band * 16;
             int distFromCenter = by + 5 - pCY;
@@ -127,38 +175,21 @@ class Room extends TileMap {
                 g2.fillRect(pCX - halfChord, by, halfChord * 2, 9);
             }
         }
-        // Planet ring system
         g2.setStroke(new BasicStroke(4f));
         g2.setColor(new Color(110, 80, 200, 22));
         g2.drawOval(pX - 35, pCY - 10, (pR + 35) * 2, 20);
-        g2.setStroke(new BasicStroke(2f));
-        g2.setColor(new Color(140, 100, 220, 14));
-        g2.drawOval(pX - 22, pCY - 6, (pR + 22) * 2, 12);
         g2.setStroke(new BasicStroke(1f));
-        // Planet limb glow
-        g2.setColor(new Color(130, 80, 255, 22));
-        g2.drawOval(pX, pY, pR * 2, pR * 2);
 
-        // Moon / cratered asteroid (far left)
-        int moonOff = (int)(cam.x * 0.025) % (W + 200);
-        int mX = 50 + (W - moonOff) % W % 300; int mY = 80; int mR = 38;
+        // Moon
+        int mX = 50 + (int)(cam.x * 0.025) % 300; int mY = 80; int mR = 38;
         g2.setColor(new Color(38, 32, 52, 60));
         g2.fillOval(mX, mY, mR * 2, mR * 2);
-        // Moon craters
-        g2.setColor(new Color(18, 14, 30, 55));
-        g2.fillOval(mX + 8, mY + 10, 13, 11);
-        g2.fillOval(mX + mR + 4, mY + mR - 4, 9, 8);
-        g2.fillOval(mX + 13, mY + mR + 6, 10, 9);
-        // Moon highlight
-        g2.setColor(new Color(80, 70, 115, 28));
-        g2.fillOval(mX + 4, mY + 4, mR - 4, mR / 2);
 
-        // Horizon nebula density clouds
+        // Clouds
         for (int i = 0; i < 4; i++) {
             int nx = (int)((i * 380L - (long)(cam.x * 0.09)) % (W + 600) - 100);
             int ny = H - 130 - i * 20;
-            Color nc = i % 2 == 0 ? new Color(55, 10, 140, 14) : new Color(0, 35, 100, 11);
-            g2.setColor(nc);
+            g2.setColor(i % 2 == 0 ? new Color(55, 10, 140, 14) : new Color(0, 35, 100, 11));
             g2.fillOval(nx, ny, 320 + i * 80, 90 + i * 25);
         }
     }
@@ -172,26 +203,12 @@ class Room extends TileMap {
     }
 
     void drawProjectiles(Graphics2D g2) {
-        long t = System.currentTimeMillis();
         for (EnemyProjectile p : projectiles) {
             int px = (int)p.x, py = (int)p.y;
-            // Trail de energia
-            for (int i = 1; i <= 4; i++) {
-                int alpha = 60 - i * 14;
-                float trailX = p.x - p.vx * i * 1.5f;
-                g2.setColor(new Color(255, 80, 80, alpha));
-                g2.fillOval((int)trailX - 3, py - 3, 6, 6);
-            }
-            // Orbe principal
-            int pulse = (int)(Math.sin(t * 0.01 + px) * 20);
-            g2.setColor(new Color(255, 60 + pulse, 60, 200));
+            g2.setColor(new Color(255, 80, 80, 150));
             g2.fillOval(px - 5, py - 5, 10, 10);
-            // Núcleo brilhante
-            g2.setColor(new Color(255, 200, 200, 220));
+            g2.setColor(Color.WHITE);
             g2.fillOval(px - 2, py - 2, 4, 4);
-            // Glow exterior
-            g2.setColor(new Color(255, 50, 50, 40 + pulse / 2));
-            g2.fillOval(px - 8, py - 8, 16, 16);
         }
     }
 

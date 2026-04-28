@@ -30,8 +30,45 @@ public class Collectible extends Entity {
             case 3 -> drawPotion(g2, px, by, t);
             case 4 -> drawBomb(g2, px, by, t);
             case 5 -> drawAttackUp(g2, px, by, t);
+            case 6 -> drawLightningAmmo(g2, px, by, t);
+            case 7 -> drawStarFragment(g2, px, by, t);
             default -> drawCoin(g2, px, by, t);
         }
+    }
+
+    private void drawStarFragment(Graphics2D g2, int px, int py, long t) {
+        int cx = px + w / 2, cy = py + h / 2;
+        int pulse = (int)(Math.sin(t * 0.01) * 15);
+        
+        // Brilho intenso
+        g2.setColor(new Color(255, 255, 100, 100 + pulse));
+        g2.fillOval(cx - 15, cy - 15, 30, 30);
+        
+        // Estrela interna
+        int[] sx = {cx, cx+4, cx+12, cx+6, cx+8, cx, cx-8, cx-6, cx-12, cx-4};
+        int[] sy = {cy-12, cy-4, cy-4, cy+2, cy+12, cy+6, cy+12, cy+2, cy-4, cy-4};
+        g2.setColor(new Color(255, 255, 220));
+        g2.fillPolygon(sx, sy, 10);
+        g2.setColor(Color.WHITE);
+        g2.drawPolygon(sx, sy, 10);
+        
+        // Faíscas
+        for (int i=0; i<4; i++) {
+            double a = t * 0.005 + i * Math.PI/2;
+            int x2 = cx + (int)(Math.cos(a) * 12);
+            int y2 = cy + (int)(Math.sin(a) * 12);
+            g2.drawLine(cx, cy, x2, y2);
+        }
+    }
+
+    private void drawLightningAmmo(Graphics2D g2, int px, int py, long t) {
+        int pulse = (int)(Math.sin(t * 0.01) * 10);
+        g2.setColor(new Color(0, 255, 255, 50 + pulse));
+        g2.fillOval(px - 3, py - 3, w + 6, h + 6);
+        g2.setColor(Color.CYAN);
+        g2.fillRect(px + w / 2 - 2, py + 2, 4, h - 4);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(px + w / 2 - 1, py + 4, 2, h - 8);
     }
 
     // Tipo 0 — Cruz de cura verde pulsante

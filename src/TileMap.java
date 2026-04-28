@@ -198,6 +198,7 @@ class TileMap {
                     case SOLID -> drawSolidBlock(g2, px, py, t);
                     case PLATFORM -> drawPlatformBlock(g2, px, py);
                     case SPIKE -> drawSpike(g2, px, py);
+                    case HAZARD -> drawHazard(g2, px, py);
                     case EXIT -> drawExit(g2, px, py);
                 }
             }
@@ -290,6 +291,18 @@ class TileMap {
             g2.setColor(new Color(255, 210, 255, 175 + pulse));
             g2.fillOval(sx+s/2-2, y-1, 4, 4);
         }
+    }
+
+    void drawHazard(Graphics2D g2, int x, int y) {
+        long t = System.currentTimeMillis();
+        int pulse = (int)(Math.sin(t * 0.005 + x * 0.1) * 30);
+        g2.setColor(new Color(255, 50 + pulse, 0, 200));
+        g2.fillRect(x, y + 10, Game.GS, Game.GS - 10);
+        // Bubbles
+        g2.setColor(new Color(255, 200, 100, 150));
+        int bx = x + 5 + (int)((t/100) % (Game.GS - 10));
+        int by = y + 15 + (int)(Math.sin(t * 0.01) * 5);
+        g2.fillOval(bx, by, 4, 4);
     }
 
     void drawExit(Graphics2D g2, int x, int y) {

@@ -54,6 +54,19 @@ public class Enemy extends Entity {
                 stateTimer = 60 + (int)(Math.random() * 90); 
             }
             vx = facingRight ? 1.2f : -1.2f;
+        } else if (type == 1) { // Shooter
+            float dx = player.x - x;
+            facingRight = dx > 0;
+            vx = 0;
+            if (stateTimer-- <= 0) {
+                room.addProjectile(x + w/2, y + h/2, facingRight ? 5 : -5);
+                stateTimer = 100;
+            }
+        } else if (type == 2) { // Ghost (Floating follow)
+            float dx = player.x - x;
+            float dy = player.y - y;
+            vx = dx > 0 ? 1.5f : -1.2f;
+            vy = dy > 0 ? 0.8f : -0.8f;
         } else if (type == 3) { // Chaser
             float dx = player.x - x;
             facingRight = dx > 0;
@@ -61,6 +74,14 @@ public class Enemy extends Entity {
                 vx = 0;
             } else {
                 vx = dx > 0 ? 2.2f : -2.2f;
+            }
+        } else if (type == 4) { // Boss
+            float dx = player.x - x;
+            facingRight = dx > 0;
+            vx = dx > 0 ? 1.8f : -1.8f;
+            if (stateTimer-- <= 0) {
+                room.addProjectile(x + w/2, y + h/2, facingRight ? 6 : -6);
+                stateTimer = 60;
             }
         }
     }
