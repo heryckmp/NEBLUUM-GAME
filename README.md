@@ -13,12 +13,6 @@
 
 ---
 
-## 📸 Screenshots (Preview)
-| Menu Principal | Gameplay: Nível 1 | Transformação Estelar |
-|:---:|:---:|:---:|
-| ![Menu](./screenshots/menu.png) | ![Level 1](./screenshots/level1.png) | ![Star Form](./screenshots/star.png) |
-> *Nota: Para visualizar as imagens, crie uma pasta chamada `screenshots` no repositório e adicione seus prints com os nomes acima.*
-
 ---
 
 ## 🚀 Novas Funcionalidades
@@ -65,4 +59,3 @@
    ```
 
 ---
-<p align="center">Desenvolvido com ❤️ por um estudante de Java focado no futuro.</p>
