@@ -84,17 +84,96 @@ class TileMap {
     }
 
     void drawBackground(Graphics2D g2, Camera cam, int W, int H) {
-        // Far background parallax stars
-        g2.setColor(new Color(100, 150, 255, 3));
-        long seed = 42;
-        for (int i = 0; i < 60; i++) {
-            seed = (seed * 6364136223846793005L + 1) & 0xFFFFFFFFFFFFL;
-            int sx = (int)((seed % 1600) + (cam.x * 0.1) % 1600) % (W + 50) - 25;
-            seed = (seed * 6364136223846793005L + 1) & 0xFFFFFFFFFFFFL;
+        long t = System.currentTimeMillis();
+
+        // Void gradient base
+        g2.setPaint(new GradientPaint(0, 0, new Color(2, 1, 14), 0, H, new Color(6, 3, 28)));
+        g2.fillRect(0, 0, W, H);
+        g2.setPaint(null);
+
+        // Layer 1 — tiny background stars
+        long seed = 42L;
+        for (int i = 0; i < 130; i++) {
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int sx = (int)(((seed % (W + 200)) + (long)(cam.x * 0.03)) % (W + 200));
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
             int sy = (int)(seed % H);
-            seed = (seed * 6364136223846793005L + 1) & 0xFFFFFFFFFFFFL;
-            int sz = 1 + (int)(seed % 2);
-            g2.fillOval(sx, sy, sz, sz);
+            int b = 60 + (int)(Math.sin(t * 0.0008 + i * 0.3) * 30) + (int)(seed % 60);
+            b = Math.max(30, Math.min(180, b));
+            g2.setColor(new Color(b, b, Math.min(255, b + 50), 170));
+            g2.fillRect(sx, sy, 1, 1);
+        }
+        // Layer 2 — medium blue-tinted stars
+        seed = 137L;
+        for (int i = 0; i < 55; i++) {
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int sx = (int)(((seed % (W + 200)) + (long)(cam.x * 0.08)) % (W + 200));
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int sy = (int)(seed % (H - 80));
+            int alpha = Math.max(60, Math.min(220, 130 + (int)(Math.sin(t * 0.0015 + i * 0.7) * 45)));
+            g2.setColor(new Color(190, 215, 255, alpha));
+            if ((seed % 5) == 0) g2.fillOval(sx - 1, sy - 1, 3, 3);
+            else g2.fillRect(sx, sy, 2, 2);
+        }
+        // Layer 3 — bright foreground stars with cross flare
+        seed = 521L;
+        for (int i = 0; i < 22; i++) {
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int sx = (int)(((seed % (W + 200)) + (long)(cam.x * 0.18)) % (W + 200));
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int sy = (int)(seed % (H - 100));
+            int alpha = Math.max(80, Math.min(240, 160 + (int)(Math.sin(t * 0.002 + i * 1.1) * 55)));
+            g2.setColor(new Color(240, 245, 255, alpha));
+            g2.fillOval(sx - 1, sy - 1, 3, 3);
+            g2.setColor(new Color(200, 220, 255, alpha / 3));
+            g2.drawLine(sx - 4, sy, sx + 4, sy);
+            g2.drawLine(sx, sy - 4, sx, sy + 4);
+        }
+        // Nebula gas clouds — volumetric layered
+        int[][] nebDefs = { {80,20,180}, {180,20,80}, {0,60,160}, {100,0,150}, {20,100,120}, {0,80,60} };
+        seed = 777L;
+        for (int i = 0; i < 6; i++) {
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int nx = (int)(((seed % (long)(W * 3)) - (long)(cam.x * 0.06)) % (W + 400) - 200);
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int ny = (int)(seed % (H - 80)) - 40;
+            seed = (seed * 6364136223846793005L + 1442695040888963407L) & 0xFFFFFFFFFFFFL;
+            int nw = 120 + (int)(seed % 200); int nh = nw / 2 + (int)(seed % 50);
+            int[] nc = nebDefs[i % nebDefs.length];
+            for (int layer = 0; layer < 3; layer++) {
+                int lw = nw - layer * 25, lh = nh - layer * 12;
+                g2.setColor(new Color(nc[0], nc[1], nc[2], 14 + layer * 5));
+                g2.fillOval(nx + layer * 12, ny + layer * 6, Math.max(10, lw), Math.max(5, lh));
+            }
+        }
+        // Galactic aurora bands on horizon
+        for (int band = 0; band < 14; band++) {
+            float wave = (float)(Math.sin(t * 0.001 + band * 0.5) * 12);
+            int ay = H - 90 + band * 5 + (int)wave;
+            int alpha = Math.max(0, 20 - band * 2);
+            if (alpha > 0) {
+                Color ac = band % 3 == 0 ? new Color(100, 30, 220, alpha)
+                         : band % 3 == 1 ? new Color(0, 180, 120, alpha)
+                         :                 new Color(180, 60, 255, alpha);
+                g2.setColor(ac);
+                g2.fillRect(0, ay, W, 6);
+            }
+        }
+        // Shooting star
+        long shootCycle = (t / 5000) % 9;
+        if (shootCycle < 2) {
+            float prog = (t % 5000) / 1000f;
+            if (prog < 1f) {
+                int stx = (int)(prog * (W + 150));
+                int sty = (int)(40 + shootCycle * 55);
+                for (int seg = 0; seg < 10; seg++) {
+                    int alpha = Math.max(0, 170 - seg * 18);
+                    g2.setColor(new Color(220, 230, 255, alpha));
+                    g2.fillRect(stx - seg * 13, sty + seg * 4, 2, 1);
+                }
+                g2.setColor(new Color(255, 255, 255, 220));
+                g2.fillOval(stx - 2, sty - 2, 4, 4);
+            }
         }
     }
 
@@ -126,43 +205,133 @@ class TileMap {
     }
 
     void drawSolidBlock(Graphics2D g2, int x, int y, Tile t) {
-        Color base = t.color != null ? t.color : Color.decode("#1a2040");
-        g2.setColor(base);
+        Color base = t.color != null ? t.color : new Color(16, 12, 30);
+        Color top = new Color(Math.min(255, base.getRed()+18), Math.min(255, base.getGreen()+10), Math.min(255, base.getBlue()+28));
+        g2.setPaint(new GradientPaint(x, y, top, x, y + Game.GS, base));
         g2.fillRect(x, y, Game.GS, Game.GS);
-
-        // Top highlight
-        g2.setColor(new Color(0, 120, 255, 25));
+        g2.setPaint(null);
+        // Mineral crystal vein
+        if ((x / Game.GS + y / Game.GS) % 2 == 0) {
+            g2.setColor(new Color(90, 40, 180, 28));
+            g2.drawLine(x + 4, y + 9, x + Game.GS - 7, y + 15);
+        } else {
+            g2.setColor(new Color(40, 60, 180, 22));
+            g2.drawLine(x + 9, y + 4, x + 15, y + Game.GS - 8);
+        }
+        // Crystal glint top edge
+        g2.setColor(new Color(150, 100, 255, 60));
         g2.fillRect(x, y, Game.GS, 2);
-
-        // Grid line
+        g2.setColor(new Color(210, 190, 255, 18));
+        g2.fillRect(x, y, Game.GS, 1);
+        // Depth shadow left
+        g2.setColor(new Color(0, 0, 0, 40));
+        g2.fillRect(x, y, 2, Game.GS);
+        // Subtle grid
         g2.setColor(new Color(255, 255, 255, 5));
         g2.drawRect(x, y, Game.GS, Game.GS);
+        // Crater detail
+        if ((x / Game.GS * 3 + y / Game.GS * 7) % 5 == 0) {
+            g2.setColor(new Color(0, 0, 0, 38));
+            g2.fillOval(x + 8, y + 10, 13, 8);
+            g2.setColor(new Color(160, 130, 255, 14));
+            g2.drawOval(x + 8, y + 10, 13, 8);
+        }
     }
 
     void drawPlatformBlock(Graphics2D g2, int x, int y) {
-        g2.setColor(Color.decode("#0d3060"));
-        g2.fillRect(x, y, Game.GS, 8);
-        g2.setColor(new Color(0, 150, 255, 40));
+        long t2 = System.currentTimeMillis();
+        // Floating asteroid fragment
+        g2.setPaint(new GradientPaint(x, y, new Color(28, 20, 52), x, y + 10, new Color(12, 8, 28)));
+        g2.fillRoundRect(x, y, Game.GS, 10, 4, 4);
+        g2.setPaint(null);
+        // Crystal mineral top glow (nebula cyan)
+        int glowA = 100 + (int)(Math.sin(t2 * 0.002 + x * 0.08) * 45);
+        g2.setColor(new Color(0, 220, 255, glowA));
         g2.fillRect(x, y, Game.GS, 2);
-        g2.setColor(new Color(255, 255, 255, 8));
-        g2.fillRect(x, y + 2, Game.GS, 1);
+        // Sub-surface glow
+        g2.setColor(new Color(80, 140, 255, 16));
+        g2.fillRect(x + 2, y + 2, Game.GS - 4, 4);
+        // Micro crystal glints
+        for (int i = 0; i < 3; i++) {
+            int gx = x + 5 + i * (Game.GS / 3);
+            int ga = 55 + (int)(Math.sin(t2 * 0.003 + i * 2.1) * 38);
+            g2.setColor(new Color(180, 220, 255, ga));
+            g2.fillRect(gx, y, 2, 2);
+        }
+        // Edge dust fade
+        g2.setColor(new Color(100, 80, 200, 10));
+        g2.fillRect(x, y, 3, 10);
+        g2.fillRect(x + Game.GS - 3, y, 3, 10);
     }
 
     void drawSpike(Graphics2D g2, int x, int y) {
-        g2.setColor(Color.decode("#ff4455"));
         int s = Game.GS / 3;
+        long t2 = System.currentTimeMillis();
+        int pulse = (int)(Math.sin(t2 * 0.006 + x * 0.08) * 32);
+        // Alien crystal base rock
+        g2.setColor(new Color(18, 8, 34));
+        g2.fillRect(x, y + s - 2, Game.GS, 5);
+        // Danger aura (violet)
+        g2.setColor(new Color(160, 0, 255, 10 + pulse / 4));
+        g2.fillRect(x, y - 6, Game.GS, s + 8);
         for (int i = 0; i < 3; i++) {
             int sx = x + i * s;
-            g2.fillPolygon(new int[]{sx, sx + s/2, sx + s}, new int[]{y + s, y, y + s}, 3);
+            // Crystal shadow
+            g2.setColor(new Color(40, 0, 80, 100));
+            g2.fillPolygon(new int[]{sx+2, sx+s/2+2, sx+s+2}, new int[]{y+s+2, y+2, y+s+2}, 3);
+            // Crystal body — violet to rose
+            g2.setPaint(new GradientPaint(sx+s/2, y, new Color(210, 60+pulse, 255), sx+s/2, y+s, new Color(80, 0, 150)));
+            g2.fillPolygon(new int[]{sx, sx+s/2, sx+s}, new int[]{y+s, y, y+s}, 3);
+            g2.setPaint(null);
+            // Crystal facet
+            g2.setColor(new Color(230, 190, 255, 75));
+            g2.drawLine(sx+s/2, y, sx+s/4, y+s/2);
+            // Glowing tip
+            g2.setColor(new Color(255, 210, 255, 175 + pulse));
+            g2.fillOval(sx+s/2-2, y-1, 4, 4);
         }
     }
 
     void drawExit(Graphics2D g2, int x, int y) {
-        int pulse = 60 + (int)(Math.sin(System.currentTimeMillis() * 0.004) * 30);
-        g2.setColor(new Color(0, 255, 200, pulse));
-        g2.fillRect(x + 4, y + 2, Game.GS - 8, Game.GS - 2);
-        g2.setColor(new Color(0, 255, 200, pulse / 2));
-        g2.fillOval(x + 6, y + 6, Game.GS - 12, Game.GS - 12);
+        long t2 = System.currentTimeMillis();
+        double angle = t2 * 0.002;
+        int cx = x + Game.GS / 2, cy = y + Game.GS / 2;
+        int pulse = (int)(Math.sin(t2 * 0.004) * 25);
+        // Gravitational lens glow
+        g2.setColor(new Color(120, 0, 255, 10 + pulse / 4));
+        g2.fillOval(x - 10, y - 10, Game.GS + 20, Game.GS + 20);
+        // Einstein ring
+        g2.setStroke(new BasicStroke(2.5f));
+        g2.setColor(new Color(180, 100, 255, 80 + pulse));
+        g2.drawOval(x - 3, y - 3, Game.GS + 6, Game.GS + 6);
+        g2.setStroke(new BasicStroke(1f));
+        // Hawking radiation arcs
+        g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int ray = 0; ray < 8; ray++) {
+            double a = angle + ray * Math.PI / 4;
+            int rx1 = cx + (int)(Math.cos(a) * 10);
+            int ry1 = cy + (int)(Math.sin(a) * 10);
+            int rx2 = cx + (int)(Math.cos(a) * 16);
+            int ry2 = cy + (int)(Math.sin(a) * 16);
+            int rayA = Math.max(20, 60 + (int)(Math.sin(a * 2 + t2 * 0.003) * 40));
+            g2.setColor(new Color(200, 150, 255, rayA));
+            g2.drawLine(rx1, ry1, rx2, ry2);
+        }
+        g2.setStroke(new BasicStroke(1f));
+        // Wormhole distortion rings
+        int[] ringR = {14, 11, 8, 5, 2};
+        Color[] ringC = {new Color(200,150,255,40+pulse), new Color(140,60,255,80), new Color(80,0,180,140), new Color(20,0,60,200), Color.BLACK};
+        for (int ring = 0; ring < 5; ring++) {
+            int r = ringR[ring];
+            g2.setColor(ringC[ring]);
+            g2.fillOval(cx - r, cy - r, r * 2, r * 2);
+        }
+        // Central pinpoint
+        g2.setColor(new Color(255, 255, 255, 160 + pulse));
+        g2.fillOval(cx - 1, cy - 1, 3, 3);
+        g2.setColor(new Color(180, 120, 255, 130 + pulse));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 7));
+        g2.drawString("EXIT", x + 2, y + Game.GS - 3);
     }
 
     void drawParticles(Graphics2D g2) {

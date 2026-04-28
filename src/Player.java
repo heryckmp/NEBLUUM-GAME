@@ -1,289 +1,231 @@
+
 import java.awt.*;
-import java.util.Random;
-import java.util.List;
+import java.awt.geom.*;
 
-public class Player {
-    float x, y;
-    int w, h;
-    float vx, vy;
-    int hp = 12, maxHp = 12;
-    int shield = 0;
-    int energy = 100, maxEnergy = 100;
-    int score = 0;
+public class Player extends Entity {
+    // Status
+    public int hp = 12, maxHp = 12, energy = 100, maxEnergy = 100;
+    public int score = 0, coins = 0, bombs = 3, healthPotions = 2;
+    public int shield = 0;
 
-    double speed = 3.2;
-    double jumpForce = -9.5;
-    int maxJumps = 2;
-    int jumpsUsed = 0;
-    boolean onGround = false;
-    boolean facingRight = true;
+    // Combate
+    public int attackDamage = 3;
+    public int attackKnockbackX = 6;
+    public int attackKnockbackY = -4;
+    public int attackCooldown = 0;
 
-    int attackCooldown = 0;
-    int attackDuration = 0;
-    boolean attacking = false;
-    float attackX, attackY, attackW, attackH;
-    int attackDamage = 3;
-    int attackKnockbackX = 6;
-    int attackKnockbackY = -4;
+    // Movimento
+    private float moveSpeed = 4.0f;
+    private float jumpPower = -9.2f;
+    private float acceleration = 0.5f;
 
-    int dashCooldown = 0;
-    boolean isDashing = false;
-    int dashDuration = 0;
-    float dashVx, dashVy;
+    // Game Feel
+    private int coyoteTimer = 0;
+    private int jumpBufferTimer = 0;
+    private final int MAX_COYOTE = 6;
+    private final int MAX_BUFFER = 5;
 
-    int invincible = 0;
+    public boolean facingRight = true;
+    public boolean attacking = false;
+    public boolean isDashing = false;
+    public int invincible = 0;
+    private int attackDuration = 0;
+    private int dashCooldown = 0;
 
-    int coins = 0, bombs = 3, healthPotions = 2;
-    int maxCoins = 999;
+    // Visual
+    private int animTick = 0;
+    private float[] dashTrailX = new float[6];
+    private float[] dashTrailY = new float[6];
+    private int dashTrailHead = 0;
 
-    boolean inputLeft, inputRight, inputJump, inputDown, inputAttack, inputDash, inputUse, inputDrop;
+    public boolean inputLeft, inputRight, inputJump, inputDown, inputAttack, inputDash, inputUse, inputDrop;
 
-    private boolean jumpReleased = true;
-
-    public Player(float x, float y) {
-        this.x = x; this.y = y;
-        w = 20; h = 32;
-        vx = 0; vy = 0;
-    }
+    public Player(float x, float y) { super(x, y, 20, 32); }
 
     public void respawn(float x, float y) {
         this.x = x; this.y = y;
-        vx = 0; vy = 0;
-        hp = maxHp;
-        shield = 0;
-        energy = maxEnergy;
+        vx = 0; vy = 0; hp = maxHp;
         invincible = 120;
-        isDashing = false;
-        attacking = false;
     }
 
-    public void update(TileMap map) {
-        if (isDashing) {
-            dashDuration--;
-            if (dashDuration <= 0) isDashing = false;
-            map.spawnParticles(x + w/2, y + h/2, new Color(0, 200, 255, 80), 3, new Random());
-            x += dashVx;
-            y += dashVy;
-            invincible = Math.max(invincible, 1);
-            return;
-        }
+    @Override
+    public void update(Room room, double dt) {
+        animTick++;
+        dashTrailX[dashTrailHead % dashTrailX.length] = x;
+        dashTrailY[dashTrailHead % dashTrailY.length] = y;
+        dashTrailHead++;
 
-        vy += 0.42;
-        if (vy > 12) vy = 12;
+        if (isDashing) { updateDash(room); return; }
 
-        vx = 0;
-        if (inputLeft) vx = (float)-speed;
-        if (inputRight) vx = (float)speed;
-
-        applyMovement(map);
-
-        if (inputJump && jumpReleased && jumpsUsed < maxJumps) {
-            vy = (float)jumpForce;
-            jumpsUsed++;
-            onGround = false;
-            jumpReleased = false;
-        }
-        if (!inputJump) jumpReleased = true;
-
-        if (inputDown && onGround) {
-            vy = 3;
-            onGround = false;
-        }
-
-        if (attackCooldown > 0) attackCooldown--;
-        if (inputAttack && attackCooldown <= 0 && !attacking) {
-            startAttack();
-        }
-
-        if (attacking) {
-            attackDuration--;
-            if (attackDuration <= 0) attacking = false;
-        }
-
-        if (dashCooldown > 0) dashCooldown--;
-        if (inputDash && dashCooldown <= 0 && energy >= 25) {
-            startDash();
-        }
-
-        if (inputUse && healthPotions > 0) {
-            if (hp < maxHp) {
-                healthPotions--;
-                heal(4);
-                map.spawnParticles(x + w/2, y + h/2, new Color(0, 255, 150, 180), 12, new Random());
-            }
-        }
-
-        if (inputDrop && bombs > 0) {
-            bombs--;
-            map.spawnBomb(facingRight ? x + w : x - 20, y + h, facingRight ? 6 : -6);
-        }
+        handleMovementLogic();
+        handleJumpLogic();
+        applyGravity(0.42f);
+        moveAndCollide(room, vx, vy);
+        handleCombatLogic(room);
 
         if (invincible > 0) invincible--;
-        if (energy < maxEnergy) energy = Math.min(maxEnergy, energy + 1);
-        if (y > 800) die();
+        if (dashCooldown > 0) dashCooldown--;
+        if (energy < maxEnergy) energy++;
+        if (y > 800) hp = 0;
     }
 
-    private void applyMovement(TileMap map) {
-        x += vx;
-        handleTileCollision(map, true);
-
-        y += vy;
-        onGround = false;
-        handleTileCollision(map, false);
+    private void handleMovementLogic() {
+        if (inputLeft) { vx -= acceleration; if (vx < -moveSpeed) vx = -moveSpeed; facingRight = false; }
+        else if (inputRight) { vx += acceleration; if (vx > moveSpeed) vx = moveSpeed; facingRight = true; }
+        else vx *= friction;
     }
 
-    private void handleTileCollision(TileMap map, boolean isX) {
-        int tx1 = (int)(x / 32);
-        int tx2 = (int)((x + w - 0.01f) / 32);
-        int ty1 = (int)(y / 32);
-        int ty2 = (int)((y + h - 0.01f) / 32);
-
-        for (int ty = ty1; ty <= ty2; ty++) {
-            for (int tx = tx1; tx <= tx2; tx++) {
-                Tile tile = map.getTile(tx, ty);
-                if (tile != null && tile.isSolid() && !tile.isPlatform()) {
-                    resolveCollision(tx * 32, ty * 32, 32, 32, isX, false);
-                } else if (tile != null && tile.isPlatform() && vy >= 0) {
-                    resolveCollision(tx * 32, ty * 32, 32, 32, isX, true);
-                }
-            }
+    private void handleJumpLogic() {
+        if (onGround) coyoteTimer = MAX_COYOTE; else if (coyoteTimer > 0) coyoteTimer--;
+        if (inputJump) jumpBufferTimer = MAX_BUFFER; else if (jumpBufferTimer > 0) jumpBufferTimer--;
+        if (jumpBufferTimer > 0 && coyoteTimer > 0) {
+            vy = jumpPower; onGround = false; coyoteTimer = 0; jumpBufferTimer = 0;
         }
+        if (!inputJump && vy < -2) vy *= 0.5f;
     }
 
-    private void resolveCollision(int tileX, int tileY, int tileW, int tileH, boolean isX, boolean isPlatform) {
-        float overlapL = (x + w) - tileX;
-        float overlapR = (tileX + tileW) - x;
-        float overlapT = (y + h) - tileY;
-        float overlapB = (tileY + tileH) - y;
-
-        float minOverX = Math.min(overlapL, overlapR);
-        float minOverY = Math.min(overlapT, overlapB);
-
-        if (isPlatform) {
-            if (vy >= 0 && minOverY < minOverX && minOverY < 32/3 && minOverY > 0 && y + h - vy <= tileY + 3) {
-                y = tileY - h;
-                vy = 0;
-                onGround = true;
-                jumpsUsed = 0;
-            }
-            return;
-        }
-
-        if (minOverX < minOverY) {
-            if (overlapL < overlapR) x = tileX - w;
-            else x = tileX + tileW;
-            vx = 0;
-        } else {
-            if (overlapT < overlapB) {
-                y = tileY - h;
-                if (vy > 0) vy = 0;
-                onGround = true;
-                jumpsUsed = 0;
-            } else {
-                y = tileY + tileH;
-                if (vy < 0) vy = 0;
-            }
-        }
+    private void handleCombatLogic(Room room) {
+        if (attackCooldown > 0) attackCooldown--;
+        if (inputAttack && attackCooldown <= 0) { attacking = true; attackDuration = 8; attackCooldown = 20; }
+        if (attacking) { attackDuration--; if (attackDuration <= 0) attacking = false; }
+        if (inputDash && dashCooldown <= 0 && energy >= 30) startDash();
     }
 
-    void startAttack() {
-        attacking = true;
-        attackDuration = 8;
-        attackCooldown = 18;
-        if (facingRight) {
-            attackX = x + w; attackY = y + 2; attackW = 30; attackH = 28;
-        } else {
-            attackX = x - 30; attackY = y + 2; attackW = 30; attackH = 28;
-        }
+    private void startDash() {
+        isDashing = true; dashCooldown = 45; energy -= 30;
+        vx = facingRight ? 12 : -12; vy = 0; invincible = 15;
     }
 
-    void startDash() {
-        isDashing = true;
-        dashDuration = 8;
-        dashCooldown = 40;
-        energy -= 25;
-        if (inputRight) { dashVx = 12; dashVy = 0; facingRight = true; }
-        else if (inputLeft) { dashVx = -12; dashVy = 0; facingRight = false; }
-        else if (inputDown) { dashVx = 0; dashVy = 8; }
-        else { dashVx = facingRight ? 8 : -8; dashVy = 0; }
-        invincible = 10;
+    private void updateDash(Room room) {
+        x += vx; invincible = 2;
+        if (Math.abs(vx) > 0) vx *= 0.9f;
+        if (Math.abs(vx) < 2) isDashing = false;
+        handleTileCollision(room, true);
     }
 
-    void heal(int amount) { hp = Math.min(maxHp, hp + amount); }
-    void takeDamage(int dmg) {
-        if (invincible > 0 || isDashing) return;
-        if (shield > 0) { shield = Math.max(0, shield - dmg); invincible = 30; return; }
-        hp -= dmg;
-        invincible = 40;
-        if (hp <= 0) die();
-    }
-
-    void die() { hp = 0; }
-
-    public Rectangle getBounds() {
-        return new Rectangle((int)x, (int)y, w, h);
-    }
+    public void takeDamage(int dmg) { if (invincible > 0 || isDashing) return; hp -= dmg; invincible = 45; }
+    public void heal(int amount) { hp = Math.min(maxHp, hp + amount); }
 
     public Rectangle getAttackBox() {
-        if (attacking) return new Rectangle((int)attackX, (int)attackY, (int)attackW, (int)attackH);
-        return new Rectangle(0, 0, 0, 0);
+        int aw = 32, ah = 32;
+        return new Rectangle((int)(facingRight ? x + w : x - aw), (int)y, aw, ah);
     }
 
+    @Override
     public void draw(Graphics2D g2) {
+        if (invincible > 0 && !isDashing && (invincible / 3) % 2 == 0) return;
         int px = (int)x, py = (int)y;
+        long t = System.currentTimeMillis();
 
-        if (invincible > 0 && (invincible / 3) % 2 == 0) return;
-
-        g2.setColor(new Color(0, 0, 0, 40));
-        g2.fillRect(px + 3, py + h, w, 4);
-
+        // Nebula dash trail (violet → cyan)
         if (isDashing) {
-            g2.setColor(new Color(0, 150, 255, 60));
-            g2.fillOval(px - 10, py + h - 5, w + 20, 8);
+            for (int i = 1; i < dashTrailX.length; i++) {
+                int idx = (dashTrailHead - i + dashTrailX.length * 10) % dashTrailX.length;
+                if (dashTrailX[idx] == 0) continue;
+                int alpha = Math.max(0, 115 - i * 22);
+                float ratio = (float)i / dashTrailX.length;
+                int r = (int)(130 * ratio); int gb = 210 - (int)(70 * ratio);
+                g2.setColor(new Color(r, gb, 255, alpha));
+                g2.fillRoundRect((int)dashTrailX[idx] + 3, (int)dashTrailY[idx] + 8, w - 6, h - 16, 8, 8);
+            }
         }
 
-        g2.setColor(new Color(0, 180, 220));
-        g2.fillRect(px + 2, py + 8, w - 4, h - 12);
-
-        int gc = 60 + (int)(Math.sin(System.currentTimeMillis() * 0.005) * 20);
-        g2.setColor(new Color(0, 220, 255, gc));
-        g2.fillOval(px + 1, py + 12, w - 2, 12);
-
-        g2.setColor(new Color(0, 160, 200));
-        g2.fillRect(px + 1, py + 2, w - 2, 10);
-
-        g2.setColor(new Color(255, 255, 255));
-        int visorX = facingRight ? px + 13 : px + 3;
-        g2.fillRect(visorX, py + 4, 5, 5);
-        g2.setColor(new Color(150, 255, 255, 180));
-        g2.fillRect(visorX + 1, py + 5, 3, 3);
-
-        g2.setColor(new Color(0, 120, 160));
-        if (onGround && Math.abs(vx) > 0.1) {
-            int legA = (int)(Math.sin(System.currentTimeMillis() * 0.012) * 4);
-            g2.fillRect(px + 3, py + h - 6, 6, 6 + legA);
-            g2.fillRect(px + w - 9, py + h - 6, 6, 6 - legA);
-        } else if (!onGround) {
-            g2.fillRect(px + 1, py + h - 6, 6, 6);
-            g2.fillRect(px + w - 7, py + h - 6, 6, 6);
-        } else {
-            g2.fillRect(px + 3, py + h - 6, 6, 6);
-            g2.fillRect(px + w - 9, py + h - 6, 6, 6);
-        }
-
+        // Shield aura
         if (shield > 0) {
-            g2.setColor(new Color(100, 150, 255, 30));
-            g2.drawOval(px - 6, py - 6, w + 12, h + 12);
+            int sp = (int)(Math.sin(animTick * 0.12) * 5);
+            g2.setColor(new Color(100, 60, 255, 28 + sp * 3));
+            g2.fillOval(px - 11, py - 11, w + 22, h + 22);
+            g2.setColor(new Color(160, 100, 255, 75));
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.drawOval(px - 11, py - 11, w + 22, h + 22);
+            g2.setStroke(new BasicStroke(1f));
         }
 
+        // Outer suit glow
+        Color suitGlow = isDashing ? new Color(120, 40, 255, 90) : new Color(60, 120, 255, 35);
+        g2.setColor(suitGlow);
+        g2.fillRoundRect(px - 4, py - 4, w + 8, h + 8, 14, 14);
+
+        // Thruster pack (back side)
+        int thrX = facingRight ? px - 4 : px + w - 1;
+        g2.setColor(new Color(25, 22, 45));
+        g2.fillRoundRect(thrX, py + 13, 5, h - 22, 3, 3);
+        // Thruster flame
+        if (Math.abs(vx) > 0.5f || isDashing) {
+            int fLen = isDashing ? 16 : 7 + (int)(Math.sin(t * 0.025) * 3);
+            int fDir = facingRight ? -fLen : 5;
+            int fa = isDashing ? 190 : 80 + (int)(Math.sin(t * 0.02) * 35);
+            g2.setColor(new Color(60, 180, 255, fa));
+            g2.fillOval(thrX + fDir, py + h - 21, fLen + 2, 8);
+            g2.setColor(new Color(180, 80, 255, fa / 2));
+            g2.fillOval(thrX + fDir + 2, py + h - 20, fLen - 3, 5);
+        }
+
+        // Legs (spacesuit boots)
+        g2.setColor(new Color(22, 18, 50));
+        g2.fillRoundRect(px + 2, py + h - 10, 7, 10, 3, 3);
+        g2.fillRoundRect(px + w - 9, py + h - 10, 7, 10, 3, 3);
+        // Boot glow strip
+        g2.setColor(new Color(80, 160, 255, 55));
+        g2.fillRect(px + 2, py + h - 2, 7, 2);
+        g2.fillRect(px + w - 9, py + h - 2, 7, 2);
+
+        // Suit body
+        Color suitTop = isDashing ? new Color(100, 60, 255) : new Color(38, 30, 85);
+        Color suitBot = isDashing ? new Color(60, 20, 200) : new Color(18, 14, 50);
+        g2.setPaint(new GradientPaint(px, py + 10, suitTop, px, py + h - 10, suitBot));
+        g2.fillRoundRect(px + 1, py + 10, w - 2, h - 18, 6, 6);
+        g2.setPaint(null);
+
+        // Chest panel LEDs
+        int led1A = 80 + (int)(Math.sin(t * 0.004) * 40);
+        int led2A = 80 + (int)(Math.sin(t * 0.004 + 1.5) * 40);
+        g2.setColor(new Color(0, 220, 255, led1A));
+        g2.fillRect(px + 5, py + 17, 4, 2);
+        g2.setColor(new Color(180, 80, 255, led2A));
+        g2.fillRect(px + 11, py + 17, 3, 2);
+        // Suit seam
+        g2.setColor(new Color(120, 100, 255, 30));
+        g2.drawLine(px + w / 2, py + 12, px + w / 2, py + h - 12);
+
+        // Helmet (rounded)
+        g2.setPaint(new GradientPaint(px, py, new Color(55, 45, 100), px, py + 16, new Color(28, 22, 65)));
+        g2.fillRoundRect(px, py, w, 18, 10, 10);
+        g2.setPaint(null);
+
+        // Visor (oval, glowing)
+        int vx2 = px + 2; int vy = py + 3;
+        g2.setColor(new Color(30, 200, 255, 200));
+        g2.fillRoundRect(vx2, vy, w - 4, 10, 6, 6);
+        // Visor inner reflection
+        g2.setColor(new Color(255, 255, 255, 60));
+        g2.fillRoundRect(vx2 + 2, vy + 1, (w - 8) / 2, 3, 2, 2);
+        // Visor star reflection
+        int starA = 80 + (int)(Math.sin(t * 0.003) * 40);
+        g2.setColor(new Color(255, 255, 255, starA));
+        g2.fillOval(facingRight ? px + w - 7 : px + 3, vy + 2, 2, 2);
+
+        // Helmet neon rim
+        g2.setColor(new Color(80, 160, 255, 70));
+        g2.setStroke(new BasicStroke(1f));
+        g2.drawRoundRect(px, py, w, 18, 10, 10);
+        // Suit outline
+        g2.setColor(new Color(100, 80, 255, 50));
+        g2.drawRoundRect(px + 1, py + 10, w - 2, h - 18, 6, 6);
+        g2.setStroke(new BasicStroke(1f));
+
+        // Plasma attack arc
         if (attacking) {
-            int atx = facingRight ? px + w + 4 : px - 24;
-            g2.setColor(new Color(0, 255, 200, 180));
-            g2.fillRect(atx, py + 6, 20, 4);
-            g2.setColor(new Color(255, 255, 255, 120));
-            g2.fillOval(atx + 6, py + 4, 10, 10);
-            g2.setColor(new Color(0, 255, 200, 30));
-            g2.fillRect(atx - 5, py, 30, 20);
+            int arcX = facingRight ? px + w - 2 : px - 36;
+            int arcY = py + h / 2 - 18;
+            int al = (int)(230 * (attackDuration / 8f));
+            g2.setColor(new Color(255, 160, 0, al));
+            g2.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawArc(arcX, arcY, 38, 38, facingRight ? -60 : 120, facingRight ? 120 : -120);
+            g2.setColor(new Color(255, 255, 120, al));
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.drawArc(arcX + 4, arcY + 4, 30, 30, facingRight ? -50 : 130, facingRight ? 100 : -100);
+            g2.setStroke(new BasicStroke(1f));
         }
     }
 }

@@ -13,6 +13,7 @@ public class Main {
             f.setLocationRelativeTo(null);
             f.setVisible(true);
             game.requestFocusInWindow();
+            game.start();
         });
     }
 }
