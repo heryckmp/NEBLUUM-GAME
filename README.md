@@ -1,38 +1,68 @@
-# NEBLUUM - Stellar Evolution Platformer
+# 🌌 NEBLUUM: Stellar Evolution
 
-Um jogo de plataforma 2D com temática espacial e evolução estelar, feito em Java puro com Swing.
+![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=java&logoColor=white)
+![Swing](https://img.shields.io/badge/GUI-Swing-blue?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Em_Desenvolvimento-green?style=for-the-badge)
 
-## Controles
+**Nebluum** é um jogo de plataforma 2D de ritmo acelerado com uma mecânica única de evolução estelar. O jogador controla um explorador espacial que, ao coletar fragmentos antigos, transcende sua forma física para se tornar uma estrela radiante.
 
-| Tecla | Ação |
-|-------|------|
-| WASD / Setas | Mover |
-| W / Espaço / Cima | Pular (duplo pulo) |
-| J / Z | Atacar com espada |
-| L / C | Disparar Raios (consome munição) |
-| K / X | Dash (esquiva rápida, consome energia) |
-| P / Esc | Pausar |
+---
 
-## Evolução Estelar
+## 👨‍💻 Sobre o Desenvolvedor
+> **Nota do Autor:** Este projeto foi desenvolvido inteiramente por um **estudante de Java** apaixonado por lógica e desenvolvimento de jogos. Nebluum é o resultado de estudos intensivos sobre orientação a objetos, concorrência (threads), processamento gráfico com Swing/AWT e física de jogos.
 
-- **Fragmentos de Estrela**: Colete um em cada fase para transformar gradualmente o personagem.
-- **Forma de Estrela**: Ao coletar os 7 fragmentos, você assume a forma estelar radiante.
-- **Poder do Raio**: Itens de raio aumentam o dano em 5% e adicionam raios visuais à sua aura.
+---
 
-## Build e Execução
+## 📸 Screenshots (Preview)
+| Menu Principal | Gameplay: Nível 1 | Transformação Estelar |
+|:---:|:---:|:---:|
+| ![Menu](./screenshots/menu.png) | ![Level 1](./screenshots/level1.png) | ![Star Form](./screenshots/star.png) |
+> *Nota: Para visualizar as imagens, crie uma pasta chamada `screenshots` no repositório e adicione seus prints com os nomes acima.*
 
-Requer **JDK 8+**:
+---
 
-```bash
-javac src/*.java
-java -cp src Main
-```
+## 🚀 Novas Funcionalidades
+- **🧬 Evolução Estelar**: O personagem muda de cor e brilho dinamicamente conforme coleta **7 Fragmentos Estelares**.
+- **💥 Sistema de Combate Refinado**: Ataques de espada com prioridade de hit e raios de energia de alta precisão.
+- **📈 Progressão de Poder**: Itens de raio aumentam o dano em 5% por unidade e expandem sua aura visual.
+- **🗺️ 7 Níveis Únicos**: Incluindo biomas de lava, ácido e o desafio final contra o **Black Hole Boss**.
 
-## Features
+---
 
-- **7 níveis** com dificuldade progressiva e biomas diferenciados.
-- **Obstáculos Dinâmicos**: Fossos de Lava, Ácido e cristais de espinho.
-- **IA de Inimigos**: Walker, Shooter, Ghost, Chaser e o Black Hole BOSS.
-- **Sistema de Combate**: Espada e Raios com prioridade de hit corrigida.
-- **Efeitos Visuais**: Partículas, Aura pulsante, Heal Star Burst e Emerald Burst.
-- **Física**: Gravidade, colisão precisa por tile e plataformas móveis.
+## 🎮 Controles
+
+| Ação | Tecla |
+|:---|:---|
+| **Movimentação** | `W`, `A`, `S`, `D` ou `Setas` |
+| **Ataque Espada** | `J` ou `Z` |
+| **Ataque Raio** | `L` ou `C` |
+| **Dash Rápido** | `K` ou `X` |
+| **Pular** | `Espaço` ou `W` |
+| **Pausar** | `Esc` ou `P` |
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+- **Linguagem**: Java 8+
+- **Biblioteca Gráfica**: Java Swing / AWT
+- **Áudio**: Sintetizador de ondas sonoras via Java Sound API
+- **Arquitetura**: Orientação a Objetos pura, sem engines externas
+
+---
+
+## 📦 Como Executar
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/heryckmp/Nebluum.git
+   ```
+2. Compile os arquivos:
+   ```bash
+   javac src/*.java
+   ```
+3. Inicie o jogo:
+   ```bash
+   java -cp src Main
+   ```
+
+---
+<p align="center">Desenvolvido com ❤️ por um estudante de Java focado no futuro.</p>
