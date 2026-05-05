@@ -39,13 +39,24 @@ class Room extends TileMap {
                 }
             }
 
-            // 2. Dano de Contato do Inimigo
-            if (e.state != 2 && e.active && e.getBounds().intersects(player.getBounds())) {
-                player.takeDamage(e.contactDmg);
-                if (player.hp > 0) sound.playHurt();
-                float dx = player.x - e.x;
-                player.vx = dx > 0 ? 5 : -5;
-                player.vy = -4;
+            // 2. Dano de Contato do Inimigo (ou RODEO se cair em cima)
+            if (e.state != 2 && e.active && player.ridingEnemy == null && e.getBounds().intersects(player.getBounds())) {
+                // Verifica se o player está caindo sobre a cabeça do inimigo (rodeo)
+                boolean landingOnTop = player.vy > 1.5f
+                    && (player.y + player.h) < (e.y + e.h * 0.55f);
+
+                if (landingOnTop && player.tryMount(e)) {
+                    // Rodeo iniciado! Partículas de comemoração
+                    spawnParticles(e.x + e.w / 2, e.y, new Color(255, 220, 50), 12, rand);
+                    spawnParticles(e.x + e.w / 2, e.y, Color.WHITE, 6, rand);
+                } else if (player.ridingEnemy == null) {
+                    // Colisão normal: toma dano
+                    player.takeDamage(e.contactDmg);
+                    if (player.hp > 0) sound.playHurt();
+                    float dx = player.x - e.x;
+                    player.vx = dx > 0 ? 5 : -5;
+                    player.vy = -4;
+                }
             }
 
             // Ataque de Raios (Ajustado: Dano imediato e bônus de dano)
@@ -74,8 +85,10 @@ class Room extends TileMap {
             Enemy e = enemies.get(i);
             if (e.isDead()) {
                 player.score += e.points;
-                if (rand.nextInt(4) == 0) {
-                    collectibles.add(new Collectible(e.x + e.w / 2, e.y, 1));
+                if (e.guaranteedDrop != -1) {
+                    collectibles.add(new Collectible(e.x + e.w / 2, e.y, e.guaranteedDrop));
+                } else {
+                    collectibles.add(new Collectible(e.x + e.w / 2, e.y, 6)); // Munição de Raio garantida!
                 }
                 spawnParticles(e.x + e.w / 2, e.y + e.h / 2, Color.decode("#ff8844"), 12, rand);
                 enemies.remove(i);
@@ -105,12 +118,17 @@ class Room extends TileMap {
                     player.emeraldBurstTimer = 60; // Inicia efeito visual esmeralda
                 }
                 else if (c.type == 7) { 
-                    player.starPower++; 
-                    player.heal(0); // Trigger heal burst visual
-                    spawnParticles(c.x, c.y, Color.WHITE, 15, rand);
-                    spawnParticles(c.x, c.y, Color.YELLOW, 20, rand);
+                    player.starPower++;
+                    player.triggerStarBurst();           // Burst dourado espetacular
+                    spawnParticles(c.x, c.y, Color.WHITE,  20, rand);
+                    spawnParticles(c.x, c.y, Color.YELLOW, 30, rand);
+                    spawnParticles(c.x, c.y, new Color(255, 180, 255), 15, rand);
                 }
-                spawnParticles(c.x, c.y, (c.type == 6 ? new Color(0, 255, 120) : (c.type == 0 ? Color.GREEN : Color.YELLOW)), 6, rand);
+                else if (c.type == 8) {
+                    player.increaseJumpPower();
+                    spawnParticles(c.x, c.y, new Color(100, 200, 255), 15, rand);
+                }
+                spawnParticles(c.x, c.y, (c.type == 6 ? new Color(0, 255, 120) : (c.type == 8 ? Color.CYAN : (c.type == 0 ? Color.GREEN : Color.YELLOW))), 6, rand);
                 collectibles.remove(i);
             }
         }

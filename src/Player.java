@@ -40,13 +40,20 @@ public class Player extends Entity {
     private int attackDuration = 0;
     private int dashCooldown = 0;
 
+    // Rodeo
+    public Enemy ridingEnemy = null;  // inimigo sendo montado
+    public int rodeoTimer = 0;        // frames montado
+    private int rodeoDamageTick = 0;  // ticks para dano passivo ao inimigo
+
     // Visual
     private int animTick = 0;
     private float[] dashTrailX = new float[6];
     private float[] dashTrailY = new float[6];
     private int dashTrailHead = 0;
     private int healFlash = 0;  
-    public int emeraldBurstTimer = 0; 
+    public int emeraldBurstTimer = 0;
+    public int starBurstTimer = 0;  // Efeito visual ao pegar estrela
+    private int hitsSinceLastStarLoss = 0; // A cada 2 hits perde 1 stack de estrela
 
     public boolean inputLeft, inputRight, inputJump, inputDown, inputAttack, inputDash, inputLightning, inputUse, inputDrop;
 
@@ -59,6 +66,16 @@ public class Player extends Entity {
         lightningAmmo = 100;
         livesCollected = 0;
         isStar = false;
+        // Reset total do efeito estrela ao reiniciar
+        starPower = 0;
+        starBurstTimer = 0;
+        emeraldBurstTimer = 0;
+        healFlash = 0;
+        hitsSinceLastStarLoss = 0;
+        // Reset rodeo
+        ridingEnemy = null;
+        rodeoTimer = 0;
+        rodeoDamageTick = 0;
     }
 
     @Override
@@ -67,6 +84,17 @@ public class Player extends Entity {
         dashTrailX[dashTrailHead % dashTrailX.length] = x;
         dashTrailY[dashTrailHead % dashTrailY.length] = y;
         dashTrailHead++;
+
+        // ---- RODEO ----
+        if (ridingEnemy != null) {
+            updateRodeo(room);
+            // Timers visuais continuam mesmo no rodeo
+            if (healFlash > 0) healFlash--;
+            if (emeraldBurstTimer > 0) emeraldBurstTimer--;
+            if (starBurstTimer > 0) starBurstTimer--;
+            if (invincible > 0) invincible--;
+            return;
+        }
 
         if (isDashing) { updateDash(room); return; }
 
@@ -85,12 +113,75 @@ public class Player extends Entity {
         // --- Temporizadores Visuais (Decremento por frame) ---
         if (healFlash > 0) healFlash--;
         if (emeraldBurstTimer > 0) emeraldBurstTimer--;
+        if (starBurstTimer > 0) starBurstTimer--;
         
         if (y > 600) hp = 0; 
 
         if (starPower > 0 && animTick % Math.max(1, 10 - starPower) == 0) {
             room.spawnParticles(x + w/2, y + h/2, Color.YELLOW, 1, new Random());
         }
+    }
+
+    private void updateRodeo(Room room) {
+        Enemy e = ridingEnemy;
+        // Valida se inimigo ainda existe e está vivo
+        if (e.state == 2 || !room.enemies.contains(e)) {
+            dismount();
+            return;
+        }
+
+        rodeoTimer++;
+        // Posiciona o player em cima do inimigo
+        x = e.x + e.w / 2f - w / 2f;
+        y = e.y - h;
+        vx = 0; vy = 0;
+        facingRight = e.facingRight;
+
+        // Dano passivo ao inimigo: 1 de dano a cada 60 frames (1 segundo)
+        rodeoDamageTick++;
+        if (rodeoDamageTick >= 60) {
+            rodeoDamageTick = 0;
+            e.takeDamage(1, 0, 0);
+            room.spawnParticles(e.x + e.w/2, e.y, new Color(255,200,50), 5, new Random());
+        }
+
+        // Pular para desmontar e ganhar impulso
+        if (inputJump) {
+            vy = jumpPower * 1.1f;  // impulso extra ao sair
+            e.takeDamage(2, e.facingRight ? 3 : -3, -3); // dano de saída
+            dismount();
+        }
+
+        // Botão de ataque: dash do inimigo (empurra lateralmente)
+        if (inputAttack && attackCooldown <= 0) {
+            e.vx = (facingRight ? 1 : -1) * 5f;
+            attackCooldown = 20;
+            room.spawnParticles(e.x + e.w/2, e.y + e.h/2, new Color(255,120,0), 8, new Random());
+        }
+        if (attackCooldown > 0) attackCooldown--;
+    }
+
+    /** Tenta iniciar o rodeo sobre um inimigo. Retorna true se conseguiu. */
+    public boolean tryMount(Enemy e) {
+        if (ridingEnemy != null || e.state == 2 || e.type == 4) return false; // Boss não pode ser montado
+        if (vy <= 0) return false; // Só monta caindo (vy positivo = descendo)
+        ridingEnemy = e;
+        e.isRidden = true;
+        rodeoTimer = 0;
+        rodeoDamageTick = 0;
+        invincible = 20;
+        vy = 0;
+        return true;
+    }
+
+    public void dismount() {
+        if (ridingEnemy != null) {
+            ridingEnemy.isRidden = false;
+            ridingEnemy = null;
+        }
+        rodeoTimer = 0;
+        rodeoDamageTick = 0;
+        invincible = 20;
     }
 
     private void checkEnvironmentalDamage(Room room) {
@@ -148,8 +239,23 @@ public class Player extends Entity {
         handleTileCollision(room, true);
     }
 
-    public void takeDamage(int dmg) { if (invincible > 0 || isDashing) return; hp -= dmg; invincible = 45; }
+    public void takeDamage(int dmg) {
+        if (invincible > 0 || isDashing) return;
+        hp -= dmg;
+        invincible = 45;
+        // Reseta o efeito da estrela completamente após 3 hits
+        if (starPower > 0) {
+            hitsSinceLastStarLoss++;
+            if (hitsSinceLastStarLoss >= 3) {
+                starPower = 0;
+                hitsSinceLastStarLoss = 0;
+                healFlash = 30; // Flash visual de perda
+            }
+        }
+    }
     public void heal(int amount) { hp = Math.min(maxHp, hp + amount); healFlash = 55; }
+    public void triggerStarBurst() { starBurstTimer = 75; }
+    public void increaseJumpPower() { jumpPower -= 0.8f; healFlash = 30; }
 
     public Rectangle getAttackBox() {
         int aw = 32, ah = 32;
@@ -162,6 +268,121 @@ public class Player extends Entity {
         int px = (int)x, py = (int)y;
         int cx = px + w/2, cy = py + h/2;
         long t = System.currentTimeMillis();
+
+        // =================================================================
+        // --- AURA DE ESTRELA ACUMULATIVA (cresce com starPower) ---
+        // =================================================================
+        if (starPower > 0) {
+            float sp = starPower / 7f; // 0..1
+            // Pulso duplo: lento e rápido se combinam
+            float pulse1 = (float)(Math.sin(t * 0.006) * 0.5 + 0.5); // 0..1
+            float pulse2 = (float)(Math.sin(t * 0.013 + 1.2) * 0.5 + 0.5);
+
+            // 1. Halo externo suave (tamanho proporcional a starPower)
+            int haloR = 18 + (int)(sp * 32) + (int)(pulse1 * (4 + sp * 8));
+            for (int layer = 3; layer >= 0; layer--) {
+                int lr = haloR + layer * 7;
+                int alpha = (int)((0.18f + sp * 0.35f) * 255 / (layer + 1));
+                // Cor muda: amarelo claro -> dourado -> branco estrelado
+                int rC = 255;
+                int gC = (int)(230 - sp * 30 + pulse2 * 20);
+                int bC = (int)(60 + sp * 120 + pulse1 * 60);
+                g2.setColor(new Color(rC, Math.min(255,gC), Math.min(255,bC), Math.max(0,alpha)));
+                g2.fillOval(cx - lr, cy - lr, lr*2, lr*2);
+            }
+
+            // 2. Anel brilhante girando
+            g2.setStroke(new BasicStroke(1.5f + sp * 2f));
+            int ringR = 22 + (int)(sp * 20) + (int)(pulse1 * 5);
+            g2.setColor(new Color(255, 240, 80, (int)(100 + sp * 155)));
+            g2.drawOval(cx - ringR, cy - ringR, ringR*2, ringR*2);
+            g2.setStroke(new BasicStroke(1f));
+
+            // 3. Raios de estrela girando (quantidade = starPower, min 4)
+            int numRays = Math.max(4, starPower * 2);
+            float speed = 0.003f + sp * 0.007f;
+            for (int i = 0; i < numRays; i++) {
+                double angle = t * speed + i * (Math.PI * 2.0 / numRays);
+                // Comprimento varia com o nível
+                float rayBase = 22 + sp * 20;
+                float rayVar  = (float)(Math.sin(t * 0.009 + i * 1.3) * (4 + sp * 8));
+                int rLen = (int)(rayBase + rayVar);
+                int rx = cx + (int)(Math.cos(angle) * rLen);
+                int ry = cy + (int)(Math.sin(angle) * rLen);
+
+                // Raio grosso (brilho)
+                g2.setStroke(new BasicStroke(3f + sp * 3f));
+                g2.setColor(new Color(255, 220, 50, (int)(30 + sp * 60)));
+                g2.drawLine(cx, cy, rx, ry);
+                // Raio fino (núcleo branco)
+                g2.setStroke(new BasicStroke(1f));
+                g2.setColor(new Color(255, 255, 220, (int)(120 + sp * 135)));
+                g2.drawLine(cx, cy, rx, ry);
+                // Ponto brilhante na ponta
+                int dotR = 2 + (int)(sp * 3);
+                g2.setColor(new Color(255, 255, 255, (int)(180 + sp * 75)));
+                g2.fillOval(rx - dotR, ry - dotR, dotR*2, dotR*2);
+            }
+            g2.setStroke(new BasicStroke(1f));
+
+            // 4. Partículas orbitais (estrelinhas pequenas)
+            int numOrb = starPower;
+            float orbR = 28 + sp * 18;
+            for (int i = 0; i < numOrb; i++) {
+                double angle = -t * 0.004 + i * (Math.PI * 2.0 / numOrb);
+                int ox = cx + (int)(Math.cos(angle) * orbR);
+                int oy = cy + (int)(Math.sin(angle) * orbR);
+                int dotSize = 3 + (int)(sp * 3);
+                g2.setColor(new Color(255, 255, 180, (int)(160 + sp * 95)));
+                g2.fillOval(ox - dotSize/2, oy - dotSize/2, dotSize, dotSize);
+                g2.setColor(Color.WHITE);
+                g2.fillOval(ox - 1, oy - 1, 2, 2);
+            }
+
+            // 5. Segundo anel (contra-rotação) aparece a partir de starPower >= 4
+            if (starPower >= 4) {
+                int ringR2 = ringR + 10 + (int)(pulse2 * 6);
+                g2.setStroke(new BasicStroke(1f));
+                g2.setColor(new Color(255, 200, 255, (int)(60 + sp * 80)));
+                g2.drawOval(cx - ringR2, cy - ringR2, ringR2*2, ringR2*2);
+            }
+        }
+        // =================================================================
+
+        // --- BURST DE ESTRELA ao pegar (prog = 1.0 -> 0.0) ---
+        if (starBurstTimer > 0) {
+            float prog = starBurstTimer / 75f;
+            float sPow = Math.min(1f, starPower / 7f);
+            // 1. 4 anéis expandindo
+            for (int i = 0; i < 4; i++) {
+                int ringSize = (int)((1 - prog) * (180 + i * 30)) + (i * 15);
+                int alpha = (int)(prog * 140 / (i + 1));
+                Color rc = i % 2 == 0 ? new Color(255, 230, 60, alpha) : new Color(255, 255, 255, alpha/2);
+                g2.setColor(rc);
+                g2.setStroke(new BasicStroke(3.5f * prog));
+                g2.drawOval(cx - ringSize/2, cy - ringSize/2, ringSize, ringSize);
+            }
+            // 2. 12 raios de explosão (dupla camada)
+            for (int i = 0; i < 12; i++) {
+                double angle = i * Math.PI / 6;
+                int len = (int)(prog * (100 + sPow * 60));
+                int rx = cx + (int)(Math.cos(angle) * len);
+                int ry = cy + (int)(Math.sin(angle) * len);
+                g2.setStroke(new BasicStroke(8f * prog));
+                g2.setColor(new Color(255, 200, 50, (int)(prog * 50)));
+                g2.drawLine(cx, cy, rx, ry);
+                g2.setStroke(new BasicStroke(2f * prog));
+                g2.setColor(new Color(255, 255, 220, (int)(prog * 255)));
+                g2.drawLine(cx, cy, rx, ry);
+            }
+            // 3. Flash de núcleo
+            int coreSize = (int)(20 * prog);
+            g2.setColor(new Color(255, 255, 255, (int)(prog * 255)));
+            g2.fillOval(cx - coreSize, cy - coreSize, coreSize*2, coreSize*2);
+            g2.setColor(new Color(255, 230, 80, (int)(prog * 200)));
+            g2.fillOval(cx - coreSize/2, cy - coreSize/2, coreSize, coreSize);
+            g2.setStroke(new BasicStroke(1f));
+        }
 
         // --- ElementoVisual: Esmeralda Star Burst (prog = 1.0 -> 0.0) ---
         if (emeraldBurstTimer > 0) {
@@ -223,6 +444,25 @@ public class Player extends Entity {
                 g2.drawLine(cx, cy, x2, y2);
             }
             g2.setStroke(new BasicStroke(1f));
+        }
+
+        // --- RODEO: sela visual quando montando ---
+        if (ridingEnemy != null) {
+            // Pulsação de cor para indicar rodeo ativo
+            float rPulse = (float)(Math.sin(t * 0.01) * 0.5 + 0.5);
+            int rAlpha = (int)(120 + rPulse * 100);
+            g2.setColor(new Color(255, 200, 50, rAlpha));
+            g2.setStroke(new BasicStroke(2.5f));
+            g2.drawRoundRect(px - 2, py - 2, w + 4, h + 4, 8, 8);
+            g2.setStroke(new BasicStroke(1f));
+            // Timer de rodeo como mini barra acima
+            int maxRodeo = 300;
+            int barW = w;
+            int filled = Math.min(barW, rodeoTimer * barW / maxRodeo);
+            g2.setColor(new Color(0, 0, 0, 100));
+            g2.fillRect(px, py - 7, barW, 4);
+            g2.setColor(new Color(255, 180, 0, 200));
+            g2.fillRect(px, py - 7, filled, 4);
         }
 
         // Traje e outras camadas

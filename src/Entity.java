@@ -44,8 +44,8 @@ public abstract class Entity {
         for (int ty = ty1; ty <= ty2; ty++) {
             for (int tx = tx1; tx <= tx2; tx++) {
                 Tile t = room.getTile(tx, ty);
-                if (t != null && (t.isSolid() || t.isPlatform())) {
-                    resolveOverlap(tx * ts, ty * ts, ts, isX, t.isPlatform());
+                if (t != null && (t.isSolid() || t.isPlatform() || t.isSpike())) {
+                    resolveOverlap(tx * ts, ty * ts, ts, isX, t.isPlatform() || t.isSpike());
                 }
             }
         }

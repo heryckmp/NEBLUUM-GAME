@@ -32,8 +32,33 @@ public class Collectible extends Entity {
             case 5 -> drawAttackUp(g2, px, by, t);
             case 6 -> drawLightningAmmo(g2, px, by, t);
             case 7 -> drawStarFragment(g2, px, by, t);
+            case 8 -> drawJumpUp(g2, px, by, t);
             default -> drawCoin(g2, px, by, t);
         }
+    }
+
+    private void drawJumpUp(Graphics2D g2, int px, int py, long t) {
+        int cx = px + w / 2, cy = py + h / 2;
+        int pulse = (int)(Math.sin(t * 0.008) * 15);
+        // Aura formato vento
+        g2.setColor(new Color(200, 255, 255, 60 + pulse));
+        g2.fillOval(px - 4, py, w + 8, h);
+        
+        // Seta p/ cima
+        int[] sx = { cx, cx + 6, cx + 2, cx + 2, cx - 2, cx - 2, cx - 6 };
+        int[] sy = { py + 2, py + 8, py + 8, py + h - 2, py + h - 2, py + 8, py + 8 };
+        g2.setPaint(new GradientPaint(cx, py, new Color(255, 255, 255), cx, py + h, new Color(100, 200, 255)));
+        g2.fillPolygon(sx, sy, 7);
+        g2.setPaint(null);
+        g2.setColor(new Color(0, 150, 255, 180));
+        g2.setStroke(new BasicStroke(1.2f));
+        g2.drawPolygon(sx, sy, 7);
+        g2.setStroke(new BasicStroke(1f));
+        
+        // Asas
+        g2.setColor(new Color(255, 255, 255, 120 + pulse));
+        g2.fillOval(cx - 10, cy, 8, 4);
+        g2.fillOval(cx + 2, cy, 8, 4);
     }
 
     private void drawStarFragment(Graphics2D g2, int px, int py, long t) {

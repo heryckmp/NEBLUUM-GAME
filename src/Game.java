@@ -74,8 +74,17 @@ public class Game extends JPanel implements Runnable {
     private void startLevel(int level) {
         this.currentLevel = level;
         currentRoom = levelManager.buildLevel(level);
-        if (player == null) player = new Player(100, 100);
-        else player.respawn(100, 100);
+        if (player == null) {
+            player = new Player(100, 100);
+        } else if (level == 1) {
+            player.respawn(100, 100); // Game Over ou início do jogo reseta tudo
+        } else {
+            // Passou de fase: mantém HP, itens e efeito de estrela. Reseta só posição e status temporários
+            player.x = 100; player.y = 100;
+            player.vx = 0; player.vy = 0;
+            player.invincible = 120;
+            player.dismount();
+        }
         camera.target = player;
     }
 

@@ -12,6 +12,8 @@ public class Enemy extends Entity {
     public int points = 50;
     public int animTimer = 0;
     public boolean active = false;
+    public boolean isRidden = false; // true quando o player está montado neste inimigo
+    public int guaranteedDrop = -1;
 
     public Enemy(float x, float y, int type, int hp) {
         super(x, y, 24, 28);
@@ -35,7 +37,9 @@ public class Enemy extends Entity {
         }
 
         handleAI(room, player);
-        applyGravity(0.4f);
+        if (type != 2) applyGravity(0.4f); // Ghost flutua, sem gravidade
+        // Quando montado: velocidade reduzida (player dirige via ataque)
+        if (isRidden) { vx *= 0.6f; }
         moveAndCollide(room, vx, vy);
         if (y > 800) { state = 2; stateTimer = 0; }
     }
@@ -46,42 +50,64 @@ public class Enemy extends Entity {
         int tx = (int)(nextX / 32);
         int ty = (int)(footY / 32);
         Tile floorAhead = room.getTile(tx, ty);
-        boolean holeAhead = floorAhead == null || (!floorAhead.isSolid() && !floorAhead.isPlatform());
+        boolean holeAhead = floorAhead == null || (!floorAhead.isSolid() && !floorAhead.isPlatform() && !floorAhead.isSpike());
 
-        if (type == 0) { // Walker
+        if (type == 0) { // Walker — vira mais rápido, velocidade ligeiramente maior
             if (stateTimer-- <= 0 || holeAhead) { 
                 facingRight = !facingRight; 
-                stateTimer = 60 + (int)(Math.random() * 90); 
+                stateTimer = 40 + (int)(Math.random() * 60); 
             }
-            vx = facingRight ? 1.2f : -1.2f;
-        } else if (type == 1) { // Shooter
-            float dx = player.x - x;
-            facingRight = dx > 0;
-            vx = 0;
-            if (stateTimer-- <= 0) {
-                room.addProjectile(x + w/2, y + h/2, facingRight ? 5 : -5);
-                stateTimer = 100;
-            }
-        } else if (type == 2) { // Ghost (Floating follow)
+            vx = facingRight ? 1.6f : -1.6f;
+        } else if (type == 1) { // Shooter — se move lateralmente E atira mais rápido
             float dx = player.x - x;
             float dy = player.y - y;
-            vx = dx > 0 ? 1.5f : -1.2f;
-            vy = dy > 0 ? 0.8f : -0.8f;
-        } else if (type == 3) { // Chaser
-            float dx = player.x - x;
             facingRight = dx > 0;
-            if (holeAhead) {
-                vx = 0;
+            // Strafe: se aproxima do player mantendo distância de 96–250px
+            float dist = Math.abs(dx);
+            if (dist > 250) {
+                vx = dx > 0 ? 1.4f : -1.4f; // avança
+            } else if (dist < 96) {
+                vx = dx > 0 ? -1.2f : 1.2f; // recua
             } else {
-                vx = dx > 0 ? 2.2f : -2.2f;
+                vx *= 0.85f; // freio suave na faixa ideal
             }
-        } else if (type == 4) { // Boss
+            // Atira com cadência ajustada por distância
+            if (stateTimer-- <= 0) {
+                room.addProjectile(x + w/2, y + h/2, facingRight ? 5 : -5);
+                stateTimer = 70 + (int)(Math.random() * 30);
+            }
+        } else if (type == 2) { // Ghost — persegue diretamente, acelera ao se aproximar
+            float dx = player.x - x;
+            float dy = player.y - y;
+            float dist = (float)Math.sqrt(dx*dx + dy*dy);
+            float spd = dist < 150 ? 2.2f : 1.5f; // mais rápido perto
+            vx += (dx > 0 ? spd : -spd) * 0.12f;
+            vy += (dy > 0 ? spd : -spd) * 0.12f;
+            // Limita velocidade
+            float maxV = spd;
+            if (Math.abs(vx) > maxV) vx = vx > 0 ? maxV : -maxV;
+            if (Math.abs(vy) > maxV) vy = vy > 0 ? maxV : -maxV;
+            facingRight = dx > 0;
+        } else if (type == 3) { // Chaser — pula sobre buracos largos, mais veloz
+            float dx = player.x - x;
+            if (onGround) facingRight = dx > 0; // Só muda de direção no chão
+            
+            if (holeAhead && onGround) {
+                vy = -8.5f; // Pulo mais forte
+                vx = facingRight ? 4.2f : -4.2f; // Impulso longo
+            } else if (onGround) {
+                vx = dx > 0 ? 2.6f : -2.6f;
+            }
+            // No ar, ele mantém o vx do pulo e não reseta
+        } else if (type == 4) { // Boss — mais agressivo, atira em leque
             float dx = player.x - x;
             facingRight = dx > 0;
-            vx = dx > 0 ? 1.8f : -1.8f;
+            vx = dx > 0 ? 2.2f : -2.2f;
             if (stateTimer-- <= 0) {
                 room.addProjectile(x + w/2, y + h/2, facingRight ? 6 : -6);
-                stateTimer = 60;
+                room.addProjectile(x + w/2, y + h/2 - 10, facingRight ? 5.5f : -5.5f);
+                room.addProjectile(x + w/2, y + h/2 + 10, facingRight ? 5.5f : -5.5f);
+                stateTimer = 55;
             }
         }
     }
@@ -110,6 +136,19 @@ public class Enemy extends Entity {
         }
 
         drawHPBar(g2, px, py);
+
+        // Sela de rodeo: arco dourado em cima do inimigo
+        if (isRidden) {
+            long t2 = System.currentTimeMillis();
+            float pulse = (float)(Math.sin(t2 * 0.008) * 0.4 + 0.6);
+            g2.setColor(new Color(255, 200, 50, (int)(180 * pulse)));
+            g2.setStroke(new BasicStroke(3f));
+            g2.drawArc(px, py - 8, w, 16, 0, 180); // arco acima
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.setColor(new Color(255, 255, 150, (int)(120 * pulse)));
+            g2.drawLine(px + w/4, py - 2, px + 3*w/4, py - 2); // linha de sela
+            g2.setStroke(new BasicStroke(1f));
+        }
     }
 
     private void drawHPBar(Graphics2D g2, int px, int py) {
