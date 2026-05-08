@@ -1,248 +1,346 @@
 import java.awt.*;
 
+/**
+ * LevelManager — exatamente 3 fases.
+ *
+ * Regra de posicionamento ANTI-BUG:
+ *   Se buildFloor(r, x1, x2, FLOOR_Y) → tile sólido em y=FLOOR_Y
+ *   → inimigo posicionado em pixelY = (FLOOR_Y - 1) * 32   (um tile acima)
+ *
+ * Fase 1: Introdução — Walker + Shooter, mapa 60 cols
+ * Fase 2: Intermediária — Walker + Ghost + Chaser, mapa 80 cols, mais buracos
+ * Fase 3: Épica — todos + Bomber + Turret + Boss, mapa 120 cols, 3 seções
+ */
 class LevelManager {
-    java.util.Random rand = new java.util.Random();
 
     Room buildLevel(int level) {
-        if (level <= 1) return buildLevel1();
-        else if (level == 2) return buildLevel2();
-        else if (level == 3) return buildLevel3();
-        else if (level == 4) return buildLevel4();
-        else if (level == 5) return buildLevel5();
-        else if (level == 6) return buildLevel6();
-        else return buildFinalLevel();
+        return switch (level) {
+            case 1  -> buildLevel1();
+            case 2  -> buildLevel2();
+            default -> buildLevel3();
+        };
     }
 
-    private void buildFloor(Room r, int x1, int x2, int y) {
-        for (int x = x1; x <= x2; x++) {
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    /** Chão sólido: bloco de 4 tiles de altura */
+    private void floor(Room r, int x1, int x2, int y) {
+        for (int x = x1; x <= x2; x++)
+            for (int d = 0; d < 4; d++)
+                r.setTile(x, y + d, new Tile(TileType.SOLID));
+    }
+
+    /** Plataforma one-way (1 tile de altura) */
+    private void plat(Room r, int x1, int x2, int y) {
+        for (int x = x1; x <= x2; x++)
+            r.setTile(x, y, new Tile(TileType.PLATFORM));
+    }
+
+    /** Parede sólida vertical */
+    private void wall(Room r, int x, int y1, int y2) {
+        for (int y = y1; y <= y2; y++)
             r.setTile(x, y, new Tile(TileType.SOLID));
-            for (int d = 1; d <= 3; d++) r.setTile(x, y + d, new Tile(TileType.SOLID));
-        }
     }
 
-    private void buildHazardPit(Room r, int x1, int x2, int y) {
+    /** Espinhos */
+    private void spikes(Room r, int x1, int x2, int y) {
+        for (int x = x1; x <= x2; x++)
+            r.setTile(x, y, new Tile(TileType.SPIKE));
+    }
+
+    /** Fosso de lava/hazard */
+    private void hazard(Room r, int x1, int x2, int y) {
         for (int x = x1; x <= x2; x++) {
             r.setTile(x, y, new Tile(TileType.HAZARD));
-            for (int d = 1; d <= 2; d++) r.setTile(x, y + d, new Tile(TileType.SOLID));
+            r.setTile(x, y + 1, new Tile(TileType.SOLID));
+            r.setTile(x, y + 2, new Tile(TileType.SOLID));
         }
     }
 
-    private void buildPlat(Room r, int x1, int x2, int y) {
-        for (int x = x1; x <= x2; x++) r.setTile(x, y, new Tile(TileType.PLATFORM));
+    /** Moedas em linha */
+    private void coins(Room r, int x1, int x2, int tileY) {
+        for (int x = x1; x <= x2; x += 2)
+            r.addCollectible(x * 32 + 8, (tileY - 1) * 32 - 12, 1);
     }
 
-    private void buildWall(Room r, int x, int y1, int y2) {
-        for (int y = y1; y <= y2; y++) r.setTile(x, y, new Tile(TileType.SOLID));
-    }
-
-    private void addCoins(Room r, int x, int y, int count) {
-        for (int i = 0; i < count; i++) r.addCollectible(x + i * 30, y, 1);
-    }
-
-    private void addPlatformCoins(Room r, int x1, int x2, int y) {
-        for (int x = x1; x <= x2; x += 2) r.addCollectible(x * 32 + 16, y - 20, 1);
-    }
-
-    private void addSpikes(Room r, int x1, int x2, int y) {
-        for (int x = x1; x <= x2; x++) r.setTile(x, y, new Tile(TileType.SPIKE));
-    }
-
+    // ================================================================
+    // FASE 1 — Introdução (60 cols × 20 rows)
+    // Tipos: Walker (0), Shooter (1)
+    // Dificuldade: baixa — buracos pequenos, inimigos poucos
+    // ================================================================
     Room buildLevel1() {
-        int W = 60, H = 20;
-        Room r = new Room(W, H);
+        final int F = 15; // linha de chão principal
+        Room r = new Room(60, 20);
+        r.setTheme(Color.decode("#10091e"), Color.decode("#0d1830"), Color.decode("#4030a0"));
 
-        buildFloor(r, 0, 15, 16); 
-        buildFloor(r, 18, 25, 16);
-        buildFloor(r, 30, 45, 16);
-        buildFloor(r, 50, 59, 16);
+        // Seção 1: início seguro
+        floor(r, 0, 12, F);
 
-        buildPlat(r, 5, 9, 13);
-        buildPlat(r, 14, 18, 11);
-        buildPlat(r, 20, 25, 9);
-        buildPlat(r, 30, 35, 12);
-        buildPlat(r, 40, 44, 10);
+        // Buraco pequeno (cols 13-14) → apenas espinhos
+        spikes(r, 13, 14, F);
+        floor(r, 13, 14, F + 1); // base sólida sob espinhos
 
-        buildWall(r, 0, 0, 16);
-        buildWall(r, 28, 14, 16);
-        buildWall(r, 49, 14, 16);
+        // Seção 2
+        floor(r, 15, 28, F);
 
-        r.addEnemy(new Enemy(10 * 32, 15 * 32, 0, 7));  // Walker
-        r.addEnemy(new Enemy(22 * 32, 15 * 32, 0, 7));  // Walker
-        r.addEnemy(new Enemy(35 * 32, 15 * 32, 3, 9));  // Chaser
+        // Buraco real (cols 29-31)
+        // sem chão → queda fatal
 
-        r.addCollectible(20 * 32, 8 * 32, 7); // Fragmento 1
-        r.addCollectible(38 * 32, 15 * 32 - 10, 3);
-        addCoins(r, 3 * 32, 15 * 32 - 10, 5);
+        // Seção 3
+        floor(r, 32, 44, F);
 
-        addSpikes(r, 16, 17, 16); 
-        addSpikes(r, 26, 29, 16);
-        addSpikes(r, 46, 49, 16);
+        // Seção 4 (fim)
+        floor(r, 46, 59, F);
 
-        r.setTile(58, 15, new Tile(TileType.EXIT));
+        // Parede inicial (barreira esquerda)
+        wall(r, 0, 0, F);
+
+        // Plataformas
+        plat(r, 5,  9,  F - 3);
+        plat(r, 16, 20, F - 4);
+        plat(r, 22, 26, F - 6);
+        plat(r, 33, 37, F - 3);
+        plat(r, 42, 46, F - 5);
+
+        // Coletáveis
+        r.addCollectible(22 * 32, (F - 7) * 32, 7);  // Fragmento de Estrela
+        r.addCollectible(38 * 32, (F - 1) * 32 - 8, 3); // Poção
+        coins(r, 5, 9,   F - 3);
+        coins(r, 16, 20, F - 4);
+        coins(r, 33, 37, F - 3);
+
+        // Inimigos — TODOS sobre tile sólido verificado
+        // Walker em seção 1 (floor y=15, pixelY = 14*32 = 448)
+        r.addEnemy(new Enemy(8 * 32,  (F - 1) * 32, 0, 6));   // Walker
+        // Walker em seção 2
+        r.addEnemy(new Enemy(20 * 32, (F - 1) * 32, 0, 6));   // Walker
+        // Shooter em seção 3 — posicionado longe da borda do buraco
+        // Seção 3 começa em x=32, colocamos em x=36 (longe da borda de 29-31)
+        r.addEnemy(new Enemy(36 * 32, (F - 1) * 32, 1, 8));   // Shooter
+        // Walker na seção 4
+        r.addEnemy(new Enemy(50 * 32, (F - 1) * 32, 0, 7));   // Walker
+
+        // EXIT no final
+        r.setTile(58, F - 1, new Tile(TileType.EXIT));
         return r;
     }
 
+    // ================================================================
+    // FASE 2 — Intermediária (80 cols × 22 rows)
+    // Tipos: Walker (0), Shooter (1), Ghost (2), Chaser (3)
+    // Dificuldade: média — múltiplos buracos, Ghost voador, Chaser
+    // ================================================================
     Room buildLevel2() {
-        int W = 65, H = 20;
-        Room r = new Room(W, H);
-        r.setTheme(Color.decode("#1a1830"), Color.decode("#0d2040"), Color.decode("#00aaff"));
+        final int F = 17; // linha de chão (mais fundo para altura extra)
+        Room r = new Room(80, 22);
+        r.setTheme(Color.decode("#0e1530"), Color.decode("#0a2040"), Color.decode("#0088dd"));
 
-        buildFloor(r, 0, 8, 16);
-        buildFloor(r, 12, 18, 14);
-        buildFloor(r, 22, 30, 16);
-        buildFloor(r, 35, 40, 12);
-        buildFloor(r, 45, 52, 16);
-        buildFloor(r, 57, 64, 16);
+        // Seção 1 (plataforma inicial segura)
+        floor(r, 0, 10, F);
 
-        buildPlat(r, 14, 18, 11);
-        buildPlat(r, 20, 26, 9);
-        buildPlat(r, 28, 34, 12);
-        buildPlat(r, 32, 36, 8); // Ponto para o fragmento
+        // Buraco (11-13) — queda fatal
+        // Seção 2
+        floor(r, 14, 24, F);
 
-        r.addCollectible(33 * 32, 7 * 32, 7); // Fragmento 2
-        r.addEnemy(new Enemy(5 * 32,  15 * 32, 1,  8));  // Shooter
-        r.addEnemy(new Enemy(18 * 32, 13 * 32, 0,  7));  // Walker no segundo bloco
-        r.addEnemy(new Enemy(40 * 32, 11 * 32, 1,  8));  // Shooter
-        r.addEnemy(new Enemy(58 * 32, 15 * 32, 3,  9));  // Chaser
+        // Buraco com lava (25-28)
+        hazard(r, 25, 28, F);
 
-        addSpikes(r, 9, 11, 16);
-        addSpikes(r, 19, 21, 16);
-        addSpikes(r, 31, 34, 16);
+        // Seção 3
+        floor(r, 29, 42, F);
 
-        r.setTile(63, 15, new Tile(TileType.EXIT));
+        // Buraco (43-46)
+        // Seção 4
+        floor(r, 47, 60, F);
+
+        // Buraco (61-63)
+        // Seção 5 (final)
+        floor(r, 64, 79, F);
+
+        // Paredes
+        wall(r, 0, 0, F);
+
+        // Plataformas (ajudam a cruzar buracos)
+        plat(r, 11, 13, F - 4); // sobre buraco 1
+        plat(r, 24, 28, F - 5); // sobre lava
+        plat(r, 32, 36, F - 6);
+        plat(r, 38, 43, F - 4);
+        plat(r, 43, 46, F - 7); // sobre buraco 3
+        plat(r, 50, 55, F - 5);
+        plat(r, 60, 64, F - 4); // sobre buraco 4
+        plat(r, 68, 73, F - 6);
+
+        // Coletáveis
+        r.addCollectible(33 * 32, (F - 7) * 32, 7);  // Fragmento de Estrela
+        r.addCollectible(52 * 32, (F - 6) * 32, 8);  // Item de pulo (Chaser dropa também)
+        r.addCollectible(10 * 32, (F - 1) * 32 - 8, 3); // Poção
+        coins(r, 14, 20, F);
+        coins(r, 32, 38, F - 6);
+        coins(r, 50, 55, F - 5);
+
+        // Espinhos adicionais
+        spikes(r, 29, 30, F);  // início seção 3
+        spikes(r, 64, 65, F);  // início seção 5
+
+        // Inimigos — posicionamento anti-bug
+        // Seção 1
+        r.addEnemy(new Enemy(6 * 32,  (F-1)*32, 0, 7));   // Walker
+
+        // Seção 2 — Shooter longe das bordas dos buracos (14 e 24)
+        r.addEnemy(new Enemy(18 * 32, (F-1)*32, 1, 9));   // Shooter (x=18, longe de 14 e 24)
+
+        // Ghost — voa livremente, não precisa de chão, mas posicionamos acima do chão
+        r.addEnemy(new Enemy(35 * 32, (F-5)*32, 2, 10));  // Ghost (voa)
+
+        // Chaser na seção 3 — tem comportamento de pulo, então OK
+        Enemy chaser1 = new Enemy(38 * 32, (F-1)*32, 3, 10);
+        chaser1.guaranteedDrop = 8; // dropa item de pulo
+        r.addEnemy(chaser1);
+
+        // Seção 4
+        r.addEnemy(new Enemy(52 * 32, (F-1)*32, 1, 9));   // Shooter (longe das bordas 47 e 60)
+        r.addEnemy(new Enemy(57 * 32, (F-1)*32, 0, 8));   // Walker
+
+        // Ghost na seção 5
+        r.addEnemy(new Enemy(70 * 32, (F-5)*32, 2, 11));  // Ghost
+
+        // Chaser seção 5
+        r.addEnemy(new Enemy(74 * 32, (F-1)*32, 3, 11));  // Chaser (longe da borda 64)
+
+        // EXIT
+        r.setTile(78, F-1, new Tile(TileType.EXIT));
         return r;
     }
 
+    // ================================================================
+    // FASE 3 — ÉPICA (120 cols × 24 rows) — 3 seções distintas
+    // Tipos: todos (0-6)
+    // Dificuldade: alta — fossos grandes, Boss no final, Bomber + Turret
+    // ================================================================
     Room buildLevel3() {
-        int W = 70, H = 22;
-        Room r = new Room(W, H);
-        r.setTheme(Color.decode("#2a1a30"), Color.decode("#2a1040"), Color.decode("#aa44ff"));
+        final int F = 19; // linha de chão principal
+        Room r = new Room(120, 24);
+        r.setTheme(Color.decode("#1a0a2a"), Color.decode("#200a20"), Color.decode("#cc00ff"));
 
-        buildFloor(r, 0, 6, 18);
-        buildFloor(r, 10, 16, 16);
-        buildFloor(r, 20, 26, 18);
-        buildFloor(r, 30, 36, 14);
-        buildFloor(r, 40, 48, 16);
-        buildFloor(r, 52, 58, 18);
+        // ─── SEÇÃO 1: "Caverna de Cristal" (cols 0-38) ──────────────────
+        floor(r, 0, 8, F);
 
-        buildPlat(r, 25, 30, 10);
-        buildPlat(r, 32, 36, 9);
+        // Buraco (9-11)
+        floor(r, 12, 20, F);
+        spikes(r, 12, 13, F); // espinhos no início da seção 2
 
-        r.addCollectible(34 * 32, 8 * 32, 7); // Fragmento 3
-        r.addEnemy(new Enemy(12 * 32, 15 * 32, 2, 10));  // Ghost
-        Enemy m2 = new Enemy(22 * 32, 17 * 32, 3,  9);
-        m2.guaranteedDrop = 8; // Dropa o item de pulo!
-        r.addEnemy(m2);  // Chaser
-        r.addEnemy(new Enemy(40 * 32, 17 * 32, 0,  8));  // Walker
-        r.addEnemy(new Enemy(46 * 32, 15 * 32, 3,  9));  // Chaser (fora do buraco)
-        r.addEnemy(new Enemy(55 * 32, 17 * 32, 2, 10));  // Ghost (fora do buraco)
+        // Buraco com lava (21-24)
+        hazard(r, 21, 24, F);
 
-        addSpikes(r, 7, 9, 18);
-        addSpikes(r, 27, 29, 18);
+        floor(r, 25, 38, F);
 
-        r.setTile(68, 17, new Tile(TileType.EXIT));
-        return r;
-    }
+        // Plataformas seção 1
+        plat(r, 8,  12, F-5);  // ponte sobre buraco 1
+        plat(r, 14, 18, F-7);
+        plat(r, 22, 25, F-6);  // ponte sobre lava
+        plat(r, 28, 33, F-8);
+        plat(r, 34, 38, F-5);
 
-    Room buildLevel4() {
-        int W = 70, H = 20;
-        Room r = new Room(W, H);
-        r.setTheme(Color.decode("#3a1a1a"), Color.decode("#401a0d"), Color.decode("#ff6600"));
+        // ─── SEÇÃO 2: "Abismo" (cols 39-78) ─────────────────────────────
+        // Buraco gigante (39-55) — só plataformas flutuantes para cruzar
+        // Sem chão entre 39 e 55!
+        plat(r, 39, 42, F-4);
+        plat(r, 44, 47, F-7);
+        plat(r, 49, 52, F-10);
+        plat(r, 53, 56, F-7);
+        plat(r, 57, 60, F-4);
 
-        buildFloor(r, 0, 5, 16);
-        buildFloor(r, 8, 14, 16);
-        buildFloor(r, 18, 24, 16);
-        buildFloor(r, 28, 34, 16);
-        buildFloor(r, 48, 55, 16);
+        floor(r, 56, 70, F);
 
-        buildPlat(r, 15, 20, 9);
-        buildPlat(r, 24, 30, 10);
+        // Buraco (71-74)
+        floor(r, 75, 78, F);
 
-        r.addCollectible(28 * 32, 9 * 32, 7); // Fragmento 4
-        r.addEnemy(new Enemy(10 * 32, 15 * 32, 1, 10));  // Shooter
-        r.addEnemy(new Enemy(20 * 32, 15 * 32, 3, 11));  // Chaser
-        r.addEnemy(new Enemy(32 * 32, 15 * 32, 0,  9));  // Walker
-        r.addEnemy(new Enemy(50 * 32, 15 * 32, 2, 10));  // Ghost
-        r.addEnemy(new Enemy(60 * 32, 15 * 32, 1, 10));  // Shooter
+        // Plataformas seção 2
+        plat(r, 62, 66, F-6);
+        plat(r, 68, 72, F-8);
+        plat(r, 73, 76, F-5);  // ponte sobre buraco
 
-        addSpikes(r, 6, 7, 16);
-        addSpikes(r, 25, 27, 16);
+        // ─── SEÇÃO 3: "Trono do Boss" (cols 79-119) ──────────────────────
+        floor(r, 79, 119, F);
 
-        r.setTile(68, 15, new Tile(TileType.EXIT));
-        return r;
-    }
+        // Paredes laterais da arena do boss
+        wall(r, 79, F-8, F);  // parede esquerda da arena
+        wall(r, 119, 0, F);   // parede direita (borda)
 
-    Room buildLevel5() {
-        int W = 75, H = 20;
-        Room r = new Room(W, H);
-        r.setTheme(Color.decode("#0a2a1a"), Color.decode("#0d4020"), Color.decode("#00ff88"));
+        // Plataformas na arena do boss
+        plat(r, 82, 86, F-5);
+        plat(r, 90, 95, F-8);
+        plat(r, 98, 103, F-5);
+        plat(r, 107, 112, F-8);
 
-        buildFloor(r, 0, 10, 16);
-        buildHazardPit(r, 11, 15, 16);
-        buildFloor(r, 16, 25, 16);
-        buildHazardPit(r, 26, 30, 16);
-        buildFloor(r, 31, 74, 16);
+        // Hazard no fundo da arena (faz o player não se esconder atrás do boss)
+        hazard(r, 115, 118, F);
 
-        buildPlat(r, 25, 31, 12);
-        buildPlat(r, 40, 46, 12);
+        // ─── Espinhos extras ─────────────────────────────────────────────
+        spikes(r, 25, 26, F);
+        spikes(r, 56, 57, F);
+        spikes(r, 79, 80, F);  // entrada da arena
 
-        r.addEnemy(new Enemy(20 * 32, 15 * 32, 2, 11));  // Ghost
-        r.addEnemy(new Enemy(35 * 32, 15 * 32, 3, 12));  // Chaser
-        r.addEnemy(new Enemy(55 * 32, 15 * 32, 1, 11));  // Shooter
-        r.addEnemy(new Enemy(65 * 32, 15 * 32, 3, 12));  // Chaser
-        r.addCollectible(43 * 32, 11 * 32, 7); // Fragmento 5
-        r.addCollectible(20 * 32, 14 * 32, 3);
+        // ─── Coletáveis ──────────────────────────────────────────────────
+        r.addCollectible(28 * 32, (F-9)*32, 7);  // Fragmento de Estrela (alto, requer habilidade)
+        r.addCollectible(50 * 32, (F-11)*32, 7); // 2º Fragmento (no meio do abismo)
+        r.addCollectible(90 * 32, (F-9)*32, 7);  // 3º Fragmento (na arena do boss)
+        r.addCollectible(6  * 32, (F-1)*32-8, 3); // Poção inicial
+        r.addCollectible(62 * 32, (F-7)*32, 0);  // Cura no meio do abismo
+        r.addCollectible(85 * 32, (F-6)*32, 3);  // Poção antes do boss
+        coins(r, 14, 20, F);
+        coins(r, 62, 68, F-6);
+        coins(r, 82, 86, F-5);
 
-        r.setTile(73, 15, new Tile(TileType.EXIT));
-        return r;
-    }
+        // ─── INIMIGOS — posicionamento anti-bug ──────────────────────────
 
-    Room buildLevel6() {
-        int W = 80, H = 20;
-        Room r = new Room(W, H);
-        r.setTheme(Color.decode("#1a0a2a"), Color.decode("#300d40"), Color.decode("#ff00ff"));
+        // SEÇÃO 1 — Introdução dos tipos
+        r.addEnemy(new Enemy(5  * 32, (F-1)*32, 0,  8)); // Walker
+        r.addEnemy(new Enemy(15 * 32, (F-1)*32, 1, 10)); // Shooter (longe das bordas 12,20)
+        r.addEnemy(new Enemy(29 * 32, (F-1)*32, 0,  9)); // Walker
+        r.addEnemy(new Enemy(34 * 32, (F-6)*32, 2, 12)); // Ghost (voa na plataforma)
+        // Chaser removido a pedido do jogador (evita cair no abismo)
 
-        buildFloor(r, 0, 5, 16);
-        buildHazardPit(r, 6, 20, 16);
-        buildFloor(r, 21, 30, 16);
-        buildHazardPit(r, 31, 50, 16);
-        buildFloor(r, 51, 79, 16);
+        // Bomber: posicionado sobre chão sólido, longe de buracos
+        r.addEnemy(new Enemy(26 * 32, (F-1)*32, 5, 10)); // Bomber
 
-        for (int i = 0; i < 5; i++) {
-            buildPlat(r, 7 + i * 3, 9 + i * 3, 13 - (i % 2) * 3);
-        }
-        r.addCollectible(13 * 32, 10 * 32, 7); // Fragmento 6 (no ar)
+        // SEÇÃO 2 — Abismo
+        // Ghost voando sobre o abismo
+        r.addEnemy(new Enemy(44 * 32, (F-8)*32, 2, 13)); // Ghost
+        r.addEnemy(new Enemy(52 * 32, (F-11)*32, 2, 13)); // Ghost
 
-        r.addEnemy(new Enemy(25 * 32, 15 * 32, 4, 22));  // Boss
-        r.addEnemy(new Enemy(60 * 32, 15 * 32, 2, 13));  // Ghost
-        r.addEnemy(new Enemy(70 * 32, 15 * 32, 3, 13));  // Chaser
-        r.setTile(78, 15, new Tile(TileType.EXIT));
-        return r;
-    }
+        // Shooter na seção 2 sólida (cols 56-70) — longe das bordas 56 e 70
+        r.addEnemy(new Enemy(60 * 32, (F-1)*32, 1, 12)); // Shooter
+        // Chaser removido definitivamente para evitar o bug sob as estruturas
 
-    Room buildFinalLevel() {
-        int W = 80, H = 20;
-        Room r = new Room(W, H);
-        r.setTheme(Color.decode("#2a0a2a"), Color.decode("#200a18"), Color.decode("#ff00aa"));
+        // Turret: FIXO no chão — type 6, imobilizado pelo AI
+        Enemy turret1 = new Enemy(76 * 32, (F-1)*32, 6, 15); // Turret
+        r.addEnemy(turret1);
 
-        buildFloor(r, 0, 4, 16);
-        buildHazardPit(r, 5, 70, 16); // Fosso gigante
-        buildFloor(r, 71, 79, 16);
+        // SEÇÃO 3 — Arena do Boss
+        // Bombers patrulham as plataformas da arena
+        r.addEnemy(new Enemy(82 * 32, (F-6)*32, 5, 12)); // Bomber (plataforma F-5)
+        r.addEnemy(new Enemy(98 * 32, (F-6)*32, 5, 12)); // Bomber (plataforma F-5)
 
-        buildPlat(r, 10, 15, 12);
-        buildPlat(r, 20, 25, 9);
-        buildPlat(r, 30, 35, 12);
-        buildPlat(r, 40, 45, 9);
-        buildPlat(r, 50, 55, 12);
-        buildPlat(r, 60, 65, 9);
+        // Ghosts na arena
+        r.addEnemy(new Enemy(88 * 32, (F-9)*32, 2, 14)); // Ghost
+        r.addEnemy(new Enemy(105* 32, (F-9)*32, 2, 14)); // Ghost
 
-        r.addCollectible(42 * 32, 8 * 32, 7); // Fragmento 7 Final
-        r.addEnemy(new Enemy(74 * 32, 14 * 32, 4, 55)); // Boss final
-        r.addEnemy(new Enemy(30 * 32, 11 * 32, 2, 14)); // Ghost
-        r.addEnemy(new Enemy(45 * 32, 11 * 32, 2, 14)); // Ghost
-        r.addEnemy(new Enemy(60 * 32, 11 * 32, 1, 13)); // Shooter
+        // Turret na arena do boss
+        Enemy turret2 = new Enemy(92 * 32, (F-1)*32, 6, 18); // Turret
+        r.addEnemy(turret2);
 
-        r.setTile(78, 15, new Tile(TileType.EXIT));
+        // Chaser agressivo na arena
+        r.addEnemy(new Enemy(85 * 32, (F-1)*32, 3, 14)); // Chaser
+        r.addEnemy(new Enemy(110* 32, (F-1)*32, 3, 14)); // Chaser
+
+        // BOSS — no fundo da arena, 10 tiles de espaço à frente antes do hazard
+        // Boss está em x=108, hazard começa em 115 → 7 tiles de gap → boss não cai
+        Enemy boss = new Enemy(108 * 32, (F-1)*32, 4, 200); // HP aumentado significativamente (antes era 80)
+        boss.points = 500;
+        r.addEnemy(boss);
+
+        // EXIT — após matar todos os inimigos, inclusive o Boss
+        r.setTile(113, F-1, new Tile(TileType.EXIT)); // Movido do x=117 (onde havia lava) para x=113
         return r;
     }
 }

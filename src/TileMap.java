@@ -266,30 +266,40 @@ class TileMap {
     }
 
     void drawSpike(Graphics2D g2, int x, int y) {
-        int s = Game.GS / 3;
+        int s = 22; // Espinhos muito maiores
+        int w = Game.GS / 3; // largura da base (aprox 10)
         long t2 = System.currentTimeMillis();
         int pulse = (int)(Math.sin(t2 * 0.006 + x * 0.08) * 32);
-        // Alien crystal base rock
+        
+        // Base rock sólida preenchendo o resto do tile
         g2.setColor(new Color(18, 8, 34));
-        g2.fillRect(x, y + s - 2, Game.GS, 5);
-        // Danger aura (violet)
-        g2.setColor(new Color(160, 0, 255, 10 + pulse / 4));
-        g2.fillRect(x, y - 6, Game.GS, s + 8);
+        g2.fillRect(x, y + s - 4, Game.GS, Game.GS - s + 4);
+        
+        // Aura vermelha
+        g2.setColor(new Color(255, 0, 80, 20 + pulse / 3));
+        g2.fillRect(x, y - 10, Game.GS, s + 14);
+        
         for (int i = 0; i < 3; i++) {
-            int sx = x + i * s;
+            int sx = x + i * w;
+            int tipY = y; 
+            int baseY = y + s;
+            
             // Crystal shadow
-            g2.setColor(new Color(40, 0, 80, 100));
-            g2.fillPolygon(new int[]{sx+2, sx+s/2+2, sx+s+2}, new int[]{y+s+2, y+2, y+s+2}, 3);
-            // Crystal body — violet to rose
-            g2.setPaint(new GradientPaint(sx+s/2, y, new Color(210, 60+pulse, 255), sx+s/2, y+s, new Color(80, 0, 150)));
-            g2.fillPolygon(new int[]{sx, sx+s/2, sx+s}, new int[]{y+s, y, y+s}, 3);
+            g2.setColor(new Color(40, 0, 80, 120));
+            g2.fillPolygon(new int[]{sx+2, sx+w/2+2, sx+w+2}, new int[]{baseY+2, tipY+2, baseY+2}, 3);
+            
+            // Crystal body — vermelho/rosa
+            g2.setPaint(new GradientPaint(sx+w/2, tipY, new Color(255, 60+pulse, 100), sx+w/2, baseY, new Color(100, 0, 120)));
+            g2.fillPolygon(new int[]{sx, sx+w/2, sx+w}, new int[]{baseY, tipY, baseY}, 3);
             g2.setPaint(null);
+            
             // Crystal facet
-            g2.setColor(new Color(230, 190, 255, 75));
-            g2.drawLine(sx+s/2, y, sx+s/4, y+s/2);
+            g2.setColor(new Color(255, 180, 200, 90));
+            g2.drawLine(sx+w/2, tipY, sx+w/4, tipY + s/2);
+            
             // Glowing tip
-            g2.setColor(new Color(255, 210, 255, 175 + pulse));
-            g2.fillOval(sx+s/2-2, y-1, 4, 4);
+            g2.setColor(new Color(255, 200, 200, 200 + pulse));
+            g2.fillOval(sx+w/2-2, tipY-2, 4, 4);
         }
     }
 

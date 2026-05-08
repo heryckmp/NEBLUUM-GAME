@@ -24,7 +24,7 @@ public class Player extends Entity {
 
     // Movimento
     private float moveSpeed = 4.0f;
-    private float jumpPower = -9.2f;
+    private float jumpPower = -10.5f;
     private float acceleration = 0.5f;
 
     // Game Feel
@@ -65,6 +65,8 @@ public class Player extends Entity {
         invincible = 120;
         lightningAmmo = 100;
         livesCollected = 0;
+        score = 0;
+        coins = 0;
         isStar = false;
         // Reset total do efeito estrela ao reiniciar
         starPower = 0;
@@ -189,7 +191,8 @@ public class Player extends Entity {
         int tx1 = (int) (x / ts);
         int tx2 = (int) ((x + w - 0.1f) / ts);
         int ty1 = (int) (y / ts);
-        int ty2 = (int) ((y + h - 0.1f) / ts);
+        // +2.0f para pegar tiles embaixo dos pés, como espinhos que funcionam como plataforma
+        int ty2 = (int) ((y + h + 2.0f) / ts);
         for (int ty = ty1; ty <= ty2; ty++) {
             for (int tx = tx1; tx <= tx2; tx++) {
                 Tile t = room.getTile(tx, ty);
