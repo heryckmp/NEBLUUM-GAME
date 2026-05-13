@@ -72,7 +72,7 @@ class Room extends TileMap {
                 int lx = (int)(player.facingRight ? player.x + player.w : player.x - 150);
                 Rectangle lightningBox = new Rectangle(lx, (int)player.y, 150, (int)player.h);
                 if (lightningBox.intersects(e.getBounds())) {
-                    int finalDmg = Math.max(1, (int)(1 * player.lightningDamageMult));
+                    int finalDmg = Math.max(1, (int)(3 * player.lightningDamageMult));
                     e.takeDamage(finalDmg, 0, 0);
                     spawnParticles(e.x + e.w/2f, e.y + e.h/2f, Color.CYAN, 2, rand);
                 }
@@ -86,13 +86,21 @@ class Room extends TileMap {
             sound.playDeath();
         }
 
+
         // ── Remove inimigos mortos / fora dos bounds ─────────────────────
         int mapBottom = rows * 32 + 128;
         for (int i = enemies.size() - 1; i >= 0; i--) {
             Enemy e = enemies.get(i);
 
-            // Fora do mapa → mata imediatamente (sem drop, sem pontos)
-            if (e.y > mapBottom || e.x + e.w < -64 || e.x > cols * 32 + 64) {
+            boolean outOfBounds = e.y > mapBottom
+                    || e.x + e.w < -64
+                    || e.x > cols * 32 + 64;
+
+            if (outOfBounds) {
+                // Caiu no abismo ou foi empurrado para fora: concede pontos
+                player.score += e.points;
+                float cx = Math.max(0, Math.min(cols * 32f, e.x + e.w/2f));
+                spawnParticles(cx, (rows - 2) * 32f, Color.decode("#ff8844"), 8, rand);
                 enemies.remove(i);
                 continue;
             }
@@ -100,7 +108,7 @@ class Room extends TileMap {
             if (e.isDead()) {
                 player.score += e.points;
                 float dropX = e.x + e.w/2f;
-                float dropY = Math.min(e.y, (rows - 2) * 32f); // drop no limite do mapa
+                float dropY = Math.min(e.y, (rows - 2) * 32f);
                 if (e.guaranteedDrop != -1) {
                     collectibles.add(new Collectible(dropX, dropY, e.guaranteedDrop));
                 } else {
@@ -110,6 +118,7 @@ class Room extends TileMap {
                 enemies.remove(i);
             }
         }
+
 
         // ── Collectibles ─────────────────────────────────────────────────
         for (int i = collectibles.size() - 1; i >= 0; i--) {
@@ -123,10 +132,25 @@ class Room extends TileMap {
             }
         }
 
-        // ── Projéteis ────────────────────────────────────────────────────
+        // ── Projéteis ─────────────────────────────────────────────────────────────
+        // Calcula a hitbox do raio (usada tb para destruição de projéteis)
+        Rectangle lightningDestroyBox = null;
+        if (player.firingLightning) {
+            int lx = (int)(player.facingRight ? player.x + player.w : player.x - 300);
+            int ly = (int)(player.y - player.h / 2f);
+            lightningDestroyBox = new Rectangle(lx, ly, 300, player.h * 3);
+        }
         for (int i = projectiles.size() - 1; i >= 0; i--) {
             EnemyProjectile p = projectiles.get(i);
             p.update(this, dt);
+
+            // Raio destrói projéteis inimigos na sua direção
+            if (lightningDestroyBox != null && lightningDestroyBox.intersects(p.getBounds())) {
+                spawnParticles(p.x, p.y, Color.CYAN, 6, rand);
+                projectiles.remove(i);
+                continue;
+            }
+
             if (p.dead) {
                 spawnParticles(p.x, p.y, Color.decode("#ff4444"), 4, rand);
                 projectiles.remove(i);

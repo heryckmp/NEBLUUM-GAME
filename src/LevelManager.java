@@ -109,16 +109,11 @@ class LevelManager {
         coins(r, 16, 20, F - 4);
         coins(r, 33, 37, F - 3);
 
-        // Inimigos — TODOS sobre tile sólido verificado
-        // Walker em seção 1 (floor y=15, pixelY = 14*32 = 448)
-        r.addEnemy(new Enemy(8 * 32,  (F - 1) * 32, 0, 6));   // Walker
-        // Walker em seção 2
-        r.addEnemy(new Enemy(20 * 32, (F - 1) * 32, 0, 6));   // Walker
-        // Shooter em seção 3 — posicionado longe da borda do buraco
-        // Seção 3 começa em x=32, colocamos em x=36 (longe da borda de 29-31)
-        r.addEnemy(new Enemy(36 * 32, (F - 1) * 32, 1, 8));   // Shooter
-        // Walker na seção 4
-        r.addEnemy(new Enemy(50 * 32, (F - 1) * 32, 0, 7));   // Walker
+        // Inimigos
+        r.addEnemy(new WalkerEnemy(8  * 32, (F - 1) * 32, 6));
+        r.addEnemy(new WalkerEnemy(20 * 32, (F - 1) * 32, 6));
+        r.addEnemy(new ShooterEnemy(36 * 32, (F - 1) * 32, 8));
+        r.addEnemy(new WalkerEnemy(50 * 32, (F - 1) * 32, 7));
 
         // EXIT no final
         r.setTile(58, F - 1, new Tile(TileType.EXIT));
@@ -181,30 +176,19 @@ class LevelManager {
         spikes(r, 29, 30, F);  // início seção 3
         spikes(r, 64, 65, F);  // início seção 5
 
-        // Inimigos — posicionamento anti-bug
-        // Seção 1
-        r.addEnemy(new Enemy(6 * 32,  (F-1)*32, 0, 7));   // Walker
+        // Inimigos
+        r.addEnemy(new WalkerEnemy(6  * 32, (F-1)*32, 7));
+        r.addEnemy(new ShooterEnemy(18 * 32, (F-1)*32, 9));
+        r.addEnemy(new GhostEnemy(35 * 32, (F-5)*32, 10));
 
-        // Seção 2 — Shooter longe das bordas dos buracos (14 e 24)
-        r.addEnemy(new Enemy(18 * 32, (F-1)*32, 1, 9));   // Shooter (x=18, longe de 14 e 24)
-
-        // Ghost — voa livremente, não precisa de chão, mas posicionamos acima do chão
-        r.addEnemy(new Enemy(35 * 32, (F-5)*32, 2, 10));  // Ghost (voa)
-
-        // Chaser na seção 3 — tem comportamento de pulo, então OK
-        Enemy chaser1 = new Enemy(38 * 32, (F-1)*32, 3, 10);
-        chaser1.guaranteedDrop = 8; // dropa item de pulo
+        ChaserEnemy chaser1 = new ChaserEnemy(38 * 32, (F-1)*32, 10);
+        chaser1.guaranteedDrop = 8;
         r.addEnemy(chaser1);
 
-        // Seção 4
-        r.addEnemy(new Enemy(52 * 32, (F-1)*32, 1, 9));   // Shooter (longe das bordas 47 e 60)
-        r.addEnemy(new Enemy(57 * 32, (F-1)*32, 0, 8));   // Walker
-
-        // Ghost na seção 5
-        r.addEnemy(new Enemy(70 * 32, (F-5)*32, 2, 11));  // Ghost
-
-        // Chaser seção 5
-        r.addEnemy(new Enemy(74 * 32, (F-1)*32, 3, 11));  // Chaser (longe da borda 64)
+        r.addEnemy(new ShooterEnemy(52 * 32, (F-1)*32, 9));
+        r.addEnemy(new WalkerEnemy(57  * 32, (F-1)*32, 8));
+        r.addEnemy(new GhostEnemy(70  * 32, (F-5)*32, 11));
+        r.addEnemy(new ChaserEnemy(74 * 32, (F-1)*32, 11));
 
         // EXIT
         r.setTile(78, F-1, new Tile(TileType.EXIT));
@@ -291,56 +275,33 @@ class LevelManager {
         coins(r, 62, 68, F-6);
         coins(r, 82, 86, F-5);
 
-        // ─── INIMIGOS — posicionamento anti-bug ──────────────────────────
+        // ─── INIMIGOS ──────────────────────────────────────────────────────
 
-        // SEÇÃO 1 — Introdução dos tipos
-        r.addEnemy(new Enemy(5  * 32, (F-1)*32, 0,  8)); // Walker
-        r.addEnemy(new Enemy(15 * 32, (F-1)*32, 1, 10)); // Shooter (longe das bordas 12,20)
-        r.addEnemy(new Enemy(29 * 32, (F-1)*32, 0,  9)); // Walker
-        r.addEnemy(new Enemy(34 * 32, (F-6)*32, 2, 12)); // Ghost (voa na plataforma)
-        // Chaser removido a pedido do jogador (evita cair no abismo)
-
-        // Bomber: posicionado sobre chão sólido, longe de buracos
-        r.addEnemy(new Enemy(26 * 32, (F-1)*32, 5, 10)); // Bomber
+        // SEÇÃO 1
+        r.addEnemy(new WalkerEnemy(5   * 32, (F-1)*32,  8));
+        r.addEnemy(new ShooterEnemy(15 * 32, (F-1)*32, 10));
+        r.addEnemy(new WalkerEnemy(29  * 32, (F-1)*32,  9));
+        r.addEnemy(new GhostEnemy(34   * 32, (F-6)*32, 12));
+        r.addEnemy(new BomberEnemy(26  * 32, (F-1)*32, 10));
 
         // SEÇÃO 2 — Abismo
-        // Ghost voando sobre o abismo
-        r.addEnemy(new Enemy(44 * 32, (F-8)*32, 2, 13)); // Ghost
-        r.addEnemy(new Enemy(52 * 32, (F-11)*32, 2, 13)); // Ghost
-
-        // Shooter na seção 2 sólida (cols 56-70) — longe das bordas 56 e 70
-        r.addEnemy(new Enemy(60 * 32, (F-1)*32, 1, 12)); // Shooter
-        // Chaser removido definitivamente para evitar o bug sob as estruturas
-
-        // Turret: FIXO no chão — type 6, imobilizado pelo AI
-        Enemy turret1 = new Enemy(76 * 32, (F-1)*32, 6, 15); // Turret
-        r.addEnemy(turret1);
+        r.addEnemy(new GhostEnemy(44   * 32, (F-8)*32,  13));
+        r.addEnemy(new GhostEnemy(52   * 32, (F-11)*32, 13));
+        r.addEnemy(new ShooterEnemy(60 * 32, (F-1)*32,  12));
+        r.addEnemy(new TurretEnemy(76  * 32, (F-1)*32,  15));
 
         // SEÇÃO 3 — Arena do Boss
-        // Bombers patrulham as plataformas da arena
-        r.addEnemy(new Enemy(82 * 32, (F-6)*32, 5, 12)); // Bomber (plataforma F-5)
-        r.addEnemy(new Enemy(98 * 32, (F-6)*32, 5, 12)); // Bomber (plataforma F-5)
+        r.addEnemy(new BomberEnemy(82  * 32, (F-6)*32, 12));
+        r.addEnemy(new BomberEnemy(98  * 32, (F-6)*32, 12));
+        r.addEnemy(new GhostEnemy(88   * 32, (F-9)*32, 14));
+        r.addEnemy(new GhostEnemy(105  * 32, (F-9)*32, 14));
+        r.addEnemy(new TurretEnemy(92  * 32, (F-1)*32, 18));
+        r.addEnemy(new ChaserEnemy(85  * 32, (F-1)*32, 14));
+        r.addEnemy(new ChaserEnemy(110 * 32, (F-1)*32, 14));
+        r.addEnemy(new BossEnemy(108   * 32, (F-1)*32, 200));
 
-        // Ghosts na arena
-        r.addEnemy(new Enemy(88 * 32, (F-9)*32, 2, 14)); // Ghost
-        r.addEnemy(new Enemy(105* 32, (F-9)*32, 2, 14)); // Ghost
-
-        // Turret na arena do boss
-        Enemy turret2 = new Enemy(92 * 32, (F-1)*32, 6, 18); // Turret
-        r.addEnemy(turret2);
-
-        // Chaser agressivo na arena
-        r.addEnemy(new Enemy(85 * 32, (F-1)*32, 3, 14)); // Chaser
-        r.addEnemy(new Enemy(110* 32, (F-1)*32, 3, 14)); // Chaser
-
-        // BOSS — no fundo da arena, 10 tiles de espaço à frente antes do hazard
-        // Boss está em x=108, hazard começa em 115 → 7 tiles de gap → boss não cai
-        Enemy boss = new Enemy(108 * 32, (F-1)*32, 4, 200); // HP aumentado significativamente (antes era 80)
-        boss.points = 500;
-        r.addEnemy(boss);
-
-        // EXIT — após matar todos os inimigos, inclusive o Boss
-        r.setTile(113, F-1, new Tile(TileType.EXIT)); // Movido do x=117 (onde havia lava) para x=113
+        // EXIT
+        r.setTile(113, F-1, new Tile(TileType.EXIT));
         return r;
     }
 }
